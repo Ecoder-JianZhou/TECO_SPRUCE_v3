@@ -56,6 +56,12 @@ module mod_data
 
     integer testtt
     contains
+    subroutine get_params()
+        ! read the parameters
+        implicit none
+        
+
+    end subroutine get_params
     subroutine initialize()
         gddonset = 100.
         testtt = 666
