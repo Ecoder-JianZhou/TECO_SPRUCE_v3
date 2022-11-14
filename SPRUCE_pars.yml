@@ -9,3 +9,8 @@ params:
    gddonset:  157.85,  Q10:         2.74,     Rl0:         13.03,   Rs0: 6.32,      Rr0: 34.88,
    r_me:      0.15,    Q10pro:      1.0091,   kCH4:        5.0 ,    Omax: 10,       CH4_thre: 1500.0, Tveg: 0.1,
    Tpro_me:   10.0,    Toxi:        10.}
+
+params_max:
+  {
+    
+  }

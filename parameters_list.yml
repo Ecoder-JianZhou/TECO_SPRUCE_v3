@@ -1,0 +1,64 @@
+input_parameters:
+{
+  latitude:  47.50,   longitude:   -93.45,   wsmax:       56.5,    wsmin: 0.2,    LAIMAX: 5.3,   LAIMIN: 0.3, 
+   rdepth:    150,     Rootmax:     500,      Stemmax:     1000,    SapR: 1.,      SapS: 0.2,     SLA: 62.3,
+   GLmax:     10.56,   GRmax:       21.71,    Gsmax:       27.03,   stom_n: 2,     a1: 8,         Ds0:  2000,
+   Vcmx0:     41.38,   extkU:       0.51,     xfang:       0,       alpha: 0.385, 
+   Tau_Leaf:  1.15,    Tau_Wood:    214.1,    Tau_Root:    1.0394,  Tau_F: 0.2784, Tau_C: 8.4561,
+   Tau_Micro: 0.3118,  Tau_SlowSOM: 942.7995, Tau_Passive: 3983.99, 
+   gddonset:  157.85,  Q10:         2.74,     Rl0:         13.03,   Rs0: 6.32,      Rr0: 34.88,
+   r_me:      0.15,    Q10pro:      1.0091,   kCH4:        5.0 ,    Omax: 10,       CH4_thre: 1500.0, Tveg: 0.1,
+   Tpro_me:   10.0,    Toxi:        10.
+}
+
+const_parameters:
+  pi = 3.1415926
+  # physical constants
+    tauL(1)=0.1                  ! leaf transmittance for vis
+    rhoL(1)=0.1                  ! leaf reflectance for vis
+    rhoS(1)=0.1                  ! soil reflectance for vis
+    tauL(2)=0.425                ! for NIR
+    rhoL(2)=0.425                ! for NIR
+    rhoS(2)=0.3                  ! for NIR - later function of soil water content
+    tauL(3)=0.00                 ! for thermal
+    rhoL(3)=0.00                 ! for thermal
+    rhoS(3)=0.00                 ! for thermal
+    emleaf=0.96
+    emsoil=0.94
+    Rconst=8.314                 ! universal gas constant (J/mol)
+    sigma=5.67e-8                ! Steffan Boltzman constant (W/m2/K4)
+    cpair=1010.                  ! heat capapcity of air (J/kg/K)
+    Patm=101325. !1.e5           ! atmospheric pressure  (Pa)
+    Trefk=293.2                  !reference temp K for Kc, Ko, Rd
+    H2OLv0=2.501e6               !latent heat H2O (J/kg)
+    AirMa=29.e-3                 !mol mass air (kg/mol)
+    H2OMw=18.e-3                 !mol mass H2O (kg/mol)
+    chi=0.93                     !gbH/gbw
+    Dheat=21.5e-6                !molecular diffusivity for heat
+    ! plant parameters
+    gsw0 = 1.0e-2                !g0 for H2O in BWB model
+    eJmx0 = Vcmx0*2.7            !@20C Leuning 1996 from Wullschleger (1993)
+    theta = 0.9
+    wleaf=0.01                   !leaf width (m)
+
+    ! thermodynamic parameters for Kc and Ko (Leuning 1990)
+    conKc0 = 302.e-6                !mol mol^-1
+    conKo0 = 256.e-3                !mol mol^-1
+    Ekc = 59430.                    !J mol^-1
+    Eko = 36000.                    !J mol^-1
+    ! Erd = 53000.                    !J mol^-1
+    o2ci= 210.e-3                   !mol mol^-1
+
+    ! thermodynamic parameters for Vcmax & Jmax (Eq 9, Harley et al, 1992; #1392)
+    Eavm = 116300.               !J/mol  (activation energy)
+    Edvm = 202900.               !J/mol  (deactivation energy)
+    Eajm = 79500.                !J/mol  (activation energy) 
+    Edjm = 201000.               !J/mol  (deactivation energy)
+    Entrpy = 650.                !J/mol/K (entropy term, for Jmax & Vcmax)
+
+    ! parameters for temperature dependence of gamma* (revised from von Caemmerer et al 1993)
+    gam0 = 28.0e-6               !mol mol^-1 @ 20C = 36.9 @ 25C
+    gam1 = .0509
+    gam2 = .0010
+
+other_parameters

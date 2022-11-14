@@ -1637,7 +1637,7 @@ subroutine TECO_simu(MCMC,do_co2_da,Simu_dailyflux,Simu_soilwater,obs_soilwater,
                 rain  =input_data(5,m)    ! rain fal per hour
                 wind  =ABS(input_data(6,m))     ! wind speed m s-1
                 PAR   =input_data(7,m)             ! Unit ? umol/s/m-2
-                radsol=input_data(7,m)        ! unit ? PAR actually
+                radsol=input_data(7,m)        ! unit ? PAR actually  Jian: or incoming shortwave/longwave radiation?
                 co2ca = input_data(8,m)*1.0E-6 ! Jian: add for SPRUCE-MIP        
                 ! Rnet=input_data(9,m)
                   
