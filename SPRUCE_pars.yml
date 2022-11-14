@@ -1,0 +1,11 @@
+
+params:
+  {latitude:  47.50,   longitude:   -93.45,   wsmax:       56.5,    wsmin: 0.2,    LAIMAX: 5.3,   LAIMIN: 0.3, 
+   rdepth:    150,     Rootmax:     500,      Stemmax:     1000,    SapR: 1.,      SapS: 0.2,     SLA: 62.3,
+   GLmax:     10.56,   GRmax:       21.71,    Gsmax:       27.03,   stom_n: 2,     a1: 8,         Ds0:  2000,
+   Vcmx0:     41.38,   extkU:       0.51,     xfang:       0,       alpha: 0.385, 
+   Tau_Leaf:  1.15,    Tau_Wood:    214.1,    Tau_Root:    1.0394,  Tau_F: 0.2784, Tau_C: 8.4561,
+   Tau_Micro: 0.3118,  Tau_SlowSOM: 942.7995, Tau_Passive: 3983.99, 
+   gddonset:  157.85,  Q10:         2.74,     Rl0:         13.03,   Rs0: 6.32,      Rr0: 34.88,
+   r_me:      0.15,    Q10pro:      1.0091,   kCH4:        5.0 ,    Omax: 10,       CH4_thre: 1500.0, Tveg: 0.1,
+   Tpro_me:   10.0,    Toxi:        10.}
