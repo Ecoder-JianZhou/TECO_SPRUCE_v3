@@ -8,7 +8,7 @@ module driver
     subroutine teco_simu()
         ! Jian: change the cycle according to the forcing data. year, doy, hour
         implicit none
-        integer first_year
+        integer yr0, first_year
 
         ! Jian: start the cycle of the forcing data
         first_year  = forcing%year(1)
@@ -32,7 +32,7 @@ module driver
                     ta     = -12.85       ! since changed the ta criteria (0. to 1.e-10)) in calculating melt
                     rain_d = 0.        !dbmemo
                 endif
-                call snow_d() !Jian: update snow_dsim snow_d(rain_d,lat,days,ta,snow_dsim,fa,fsub,rho_snow,melt,dcount,decay_m)                            
+                ! call snow_d() !Jian: update snow_dsim snow_d(rain_d,lat,days,ta,snow_dsim,fa,fsub,rho_snow,melt,dcount,decay_m)                            
                 snow_depth_e = snow_dsim
             endif
             ! initialize the daily variables to run hourly simulaiton.

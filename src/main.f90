@@ -6,10 +6,12 @@ program TECO
     ! to run TECO simulation, spin-up and data simulation
     implicit none
 
-    parafile    = "input/parameters.txt"
-    climatefile = "input/forcing.txt"
+    parafile      = "input/parameters.txt"
+    climatefile   = "input/SPRUCE_forcing2011_2014.txt"
+    snowdepthfile = "input/SPRUCE_Snow_Depth_2011-2014.txt"
     call get_params()                           ! read parameters values
     call get_forcingdata()                      ! read forcing data
+    call get_snowdepth()
     call initialize()                           ! initializations
     if (do_spinup .eq. 1) call run_spinup() 
     if (do_mcmc .eq. 1) then

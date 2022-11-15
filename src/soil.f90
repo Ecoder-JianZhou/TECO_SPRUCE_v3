@@ -1,379 +1,301 @@
 module mod_soil
+    use mod_data
+
+    implicit none
+    real FLDCAP
 
     contains
-      ! subroutine for soil moisture
-subroutine soilwater(wsmax,wsmin,rdepth,FRLEN,THKSL,    &   !constants specific to soil/plant
-    &                rain,transp,evap,wcl,runoff,infilt,   &   !inputs
-    &                fwsoil,topfws,omega,wsc,zwt,phi,      &   !outputs
-    &                liq_water,infilt_rate,melt,ta,day_mod, &  ! added from soil thermal ..int
-    &                do_soilphy,snow_depth,ice,testout)                !outputs
-    ! All of inputs, the unit of water is 'mm', soil moisture or soil water content is a ratio
-    implicit none
-    ! soil traits
-    real wsmax,wsmin,wsmaxL(10),wsminL(10) !from input percent x%
-    real(KIND=8) FLDCAP,WILTPT ! ie. 0.xx
-    ! plant traits
-    real rdepth
-    integer nfr
-    ! climate conditions
-    real rain ! mm/hour
-    ! output from canopy model
-    real evap,transp
-    ! output variables
-    real fwsoil,topfws,omega
-    real fw(10),ome(10)
-    real thksl(10),depth(10),wsc(10),WUPL(10),EVAPL(10),SRDT(10)
-    real plantup(10)
-    real Tsrdt
-    real frlen(10) !fraction of root length in every layer
-    real wcl(10) !volum ratio
-    ! real fwcln(10) !  fraction of water in layers, like field capacity
-    real DWCL(10),Tr_ratio(10)
-    real wtadd,twtadd,infilt,runoff,tr_allo
-    real exchangeL,supply,demand,omegaL(10)
-    integer i,j,k
-    real infilt_max
-    ! ******************
-    ! characters annotation for water table module  -MS
-    real vtot,phi
-    real zmax,thetasmin,zthetasmin,az
-    real zwt,zwt1,zwt2,zwt3
-    ! water table characters annotation end here  -MS
-    ! *******************
-    ! *** ..int added from soil thermal
-    real melt,ta,rain_new,rain_t,snow_depth,infilt_rate
-    integer day_mod
-    logical do_soilphy
-    real liq_water(10),ice(10),testout(11)
-    real ddd,cc,infilt_dbmemo
-    ! integer days,dtimes
-    ! ***    
-    infilt_max=15.
-    WILTPT =wsmin/100.000
-    FLDCAP =wsmax/100.000
-    
-    do i=1,10
-        dwcl(i)=0.0
-        evapl(i)=0.0
-        WUPL(i)=0.0
-        SRDT(i)=0.0
-        DEPTH(i)=0.0
-    enddo
-    ! Determine which layers are reached by the root system. 
-    ! Layer volume (cm3)
-    DEPTH(1)=THKSL(1)
-    DO i=2,10
-        DEPTH(i)=DEPTH(i-1)+THKSL(i)
-    enddo
-    do i=1,10
-        IF(rdepth.GT.DEPTH(i)) nfr=i+1
-    enddo
-    IF (nfr.GT.10) nfr=10
+    ! subroutine for soil moisture
+    subroutine soilwater()
+        ! wsmax,wsmin,rdepth,FRLEN,THKSL,    &   !constants specific to soil/plant
+        ! &                rain,transp,evap,wcl,runoff,infilt,   &   !inputs
+        ! &                fwsoil,topfws,omega,wsc,zwt,phi,      &   !outputs
+        ! &                liq_water,infilt_rate,melt,ta,day_mod, &  ! added from soil thermal ..int
+        ! &                do_soilphy,snow_depth,ice,testout)                !outputs
+        ! ! All of inputs, the unit of water is 'mm', soil moisture or soil water content is a ratio
+        ! implicit none
+        ! ! soil traits
+        ! real wsmax,wsmin,wsmaxL(10),wsminL(10) !from input percent x%
+        ! real(KIND=8) FLDCAP,WILTPT ! ie. 0.xx
+        ! ! plant traits
+        ! real rdepth
+        ! 
+        ! ! climate conditions
+        ! real rain ! mm/hour
+        ! ! output from canopy model
+        ! real evap,transp
+        ! ! output variables
+        ! real fwsoil,topfws,omega
+        ! real fw(10),ome(10)
+        ! real thksl(10),depth(10),wsc(10),WUPL(10),EVAPL(10),SRDT(10)
+        ! real plantup(10)
+        ! real Tsrdt
+        ! real frlen(10) !fraction of root length in every layer
+        ! real wcl(10) !volum ratio
+        ! ! real fwcln(10) !  fraction of water in layers, like field capacity
+        ! real wtadd,twtadd,infilt,runoff,tr_allo
+        ! real exchangeL,supply,demand,omegaL(10)
+        ! integer i,j,k
+        ! real infilt_max
+        ! ! ******************
+        ! ! characters annotation for water table module  -MS
+        ! real vtot,phi
+        ! real zmax,thetasmin,zthetasmin,az
+        ! real zwt,zwt1,zwt2,zwt3
+        ! ! water table characters annotation end here  -MS
+        ! ! *******************
+        ! ! *** ..int added from soil thermal
+        ! real melt,ta,,rain_t,snow_depth,infilt_rate
+        ! integer day_mod
+        ! logical do_soilphy
+        ! real liq_water(10),ice(10),testout(11)
+        ! real ddd,cc,infilt_dbmemo
+        ! integer days,dtimes
+        ! ***    
+        real :: infilt_max = 15.
+        real DWCL(10), Tr_ratio(10)
+        real SRDT(10), depth(10), rain_new, rain_t
+        integer nfr
+        real infilt_dbmemo, twtadd, wtadd
 
-    ! *** ..int    
-    ! ******** added for soil thermal    
-    if (do_soilphy) then 
-        rain_new = rain
-        ! if (ta .lt. -0.4) rain_new =0.       !dbice   !tuneice
-        if (ta .lt. -4.) rain_new =0.       !dbice   !tuneice
-        ! if (testout(1) .lt. -4.) rain_new =0.       
-        ! **********   here it defines how the melt water is added to water input   
-        ! **********   add melted water hourly
-        rain_t =melt/24+rain_new
-        ! **********   add melted water daily all at once           
-        ! if (day_mod .eq. 0) then
-        !     rain_t =melt+rain_new
-        ! else
-        !     rain_t=rain_new
-        ! endif
-        ! print*,'infilt',rain_t,melt,rain_new   !dbmemo
-        infilt=infilt+rain_t
-        if (ice(1) .gt. 0.0) then
-            !infilt = 0.0
-        endif
-    else
-        infilt=infilt+rain
-    endif     
-    ! ***    
-    infilt_dbmemo=infilt    
-    ! *** water infiltration through layers
-    ! infilt=infilt+rain  !mm/hour    ! ..int commented lines for soil thermal module, included in the previous loop 
-    
-    ! Loop over all soil layers.
-    TWTADD=0
-    IF(infilt.GE.0.0)THEN
-        ! Add water to this layer, pass extra water to the next.
-        ! cc = wcl(1)                            !dbmemo
-        WTADD=AMIN1(INFILT,infilt_max,AMAX1((FLDCAP-wcl(1))*thksl(1)*10.0,0.0)) ! from cm to mm
-        ! change water content of this layer
-        ! write(*,*) 'before  update',wcl(1)    !dbmemo
-        WCL(1)=(WCL(1)*(thksl(1)*10.0)+WTADD)/(thksl(1)*10.0)
-        ! ddd = (FLDCAP-cc)*thksl(1)*10.0        !dbmemo
-        ! dd = (FLDCAP-0.564999998)*thksl(1)*10.0   !dbmemo
-        ! write (*,*) 'wcl(1)',wcl(1), 'WTADD',WTADD,'INFILT',INFILT,'infilt_max',infilt_max,'ddd',ddd    !dbmemo
-        ! FWCLN(I)=WCL(I)       !  /VOLUM(I)! update fwcln of this layer
-        TWTADD=TWTADD+WTADD       !calculating total added water to soil layers (mm)
-        INFILT=INFILT-WTADD !update infilt
-    ENDIF
-    !        write (*,*) 'wsc(1)',wsc(1)!dbmemo
-    ! calculating runoff, I don't see differences in zwt    
-    !  ******** runoff method 1 before !dbice
-    !    if (do_soilphy) then 
-    !       if (wsc(1) .gt. 56.5) then  !be careful = phi*thksl(mm)*
-    !
-    !           runoff= INFILT*infilt_rate  !(infilt_rate = 0.001 defined earlier)    infilt_rate= 0.001
-    !       else
-    !!           runoff=INFILT*0.0019   ! no dif in 0.00019 and 0.0019
-    !           runoff=INFILT*infilt_rate
-    !!       write (*,*) runoff,infilt          
-    !       endif
-    !    else
-    !          runoff=INFILT*0.001              ! Shuang added this elseif line
-    !    endif   
-    !  ************************
+        WILTPT = wsmin/100.000
+        FLDCAP = wsmax/100.000
         
-    !!  ******** runoff method 1 
-    !    if (do_soilphy) then 
-    !!       if (wsc(1) .lt. 20.5) then  !be careful = phi*thksl(mm)*
-    !       if (liq_water(1) .lt. 0.055) then   ! m 
-    !           runoff= INFILT*0.2  !(infilt_rate = 0.0017 defined earlier by Yuan, changed  to 0.001 by shuang )
-    !       else
-    !           runoff=INFILT*0.005   ! no dif in 0.00019 and 0.0019
-    !!           runoff=INFILT*infilt_rate
-    !!       write (*,*) runoff,infilt          
-    !       endif
-    !    else
-    !          runoff=INFILT*0.001              ! Shuang added this elseif line
-    !    endif   
-    !!  ************************
-    !  ******** runoff method 1 !dbice
-    if (do_soilphy) then 
-        ! if (wsc(1) .gt. 56.5) then  !be careful = phi*thksl(mm)*
-        ! if (wsc(1) .gt. 55.5) then  !be careful = phi*thksl(mm)*
-        !     runoff= INFILT*0.0003  !!(infilt_rate = 0.0017 defined earlier by Yuan, changed  to 0.001 by shuang )
-        !     runoff= INFILT*infilt_rate 
-        ! else
-        !     runoff=INFILT*0.0019   ! no dif in 0.00019 and 0.0019
-        runoff= INFILT*0.005
-        ! runoff= INFILT*0.0019
-        ! runoff=INFILT*infilt_rate
-        ! write (*,*) runoff,infilt          
-        ! endif
-    else
-        runoff=INFILT*0.001              ! Shuang added this elseif line
-    endif   
-    !  ************************
-        
-    !  ******** runoff method 2   
-    !    runoff=INFILT*0.0019
-    !  ************************    
-        
-    !!  ******** runoff method 3 !tuneice
-    !    if (do_soilphy) then 
-    !!       if (wsc(1) .lt. 20.5) then  !be careful = phi*thksl(mm)*
-    !       if (liq_water(1) .lt. 0.055) then   ! m 
-    !           runoff= INFILT*0.002  !(infilt_rate = 0.0017 defined earlier by Yuan, changed  to 0.001 by shuang )
-    !       else
-    !           runoff=INFILT*0.005   ! no dif in 0.00019 and 0.0019
-    !!           runoff=INFILT*infilt_rate
-    !!       write (*,*) runoff,infilt          
-    !       endif
-    !    else
-    !          runoff=INFILT*0.001              ! Shuang added this elseif line
-    !    endif   
-    !!  ************************
-        
-    !   ..int commented lines for soil thermal
-    !   runoff 
-    !    runoff=INFILT*0.001   ! Shuang Modifed  Mar16 used to be 0.0019, the water lose too much lowest wt was >400
-    infilt = infilt-runoff
-    !*********************************************************************************************************
-    if (transp .gt. 0.2 .and. transp .le. 0.22) then
-        infilt = infilt+transp*0.4
-    else if (transp .gt. 0.22) then
-        ! infilt = infilt+infilt*0.0165
-        infilt = infilt+transp*0.8
-        ! infilt = infilt+0.22*0.4+(transp-0.22)*0.9
-    else
-        infilt = infilt+transp*0.001
-    endif
-
-    if (evap .ge. 0.1 .and. evap .le. 0.15) then
-        infilt = infilt+evap*0.4
-    else if (evap .gt. 0.15) then
-        infilt = infilt+evap*0.8
-    else
-        infilt = infilt+evap*0.001
-    endif
-    !*********************************************************************************************************      
-    ! water redistribution among soil layers
-    do i=1,10
-        wsc(i)=Amax1(0.00,(wcl(i)-wiltpt)*THKSL(i)*10.0)
-        ! ..int commented lines for soil thermal        
-        ! omegaL(i)=Amax1(0.001,(wcl(i)-WILTPT)/(FLDCAP-WILTPT))
+        do i = 1,10
+            dwcl(i)  = 0.0
+            evapl(i) = 0.0
+            WUPL(i)  = 0.0
+            SRDT(i)  = 0.0
+            DEPTH(i) = 0.0
+        enddo
+        ! Layer volume (cm3)
+        DEPTH(1) = THKSL(1) ! Determine which layers are reached by the root system. 
+        DO i=2,10
+            DEPTH(i)=DEPTH(i-1)+THKSL(i)
+        enddo
+        do i=1,10
+            IF(rdepth.GT.DEPTH(i)) nfr=i+1
+        enddo
+        IF (nfr.GT.10) nfr=10
+ 
+        ! ---------- added for soil thermal    
         if (do_soilphy) then 
-           omegaL(i)=Amax1(0.001,(liq_water(i)*100./thksl(i)-WILTPT)/(FLDCAP-WILTPT))
+            rain_new = rain
+            if (ta .lt. -4.) rain_new =0.    ! if (ta .lt. -0.4) rain_new =0.       !dbice   !tuneice     
+            rain_t = melt/24+rain_new        ! here it defines how the melt water is added to water input; add melted water hourly
+            infilt = infilt+rain_t
+            if (ice(1) .gt. 0.0) then        ! Jian: no use in ice? 2022/11/15
+                !infilt = 0.0
+            endif
         else
-           omegaL(i)=Amax1(0.001,(wcl(i)-WILTPT)/(FLDCAP-WILTPT))
-        endif        
-    enddo
-    ! write (*,*) wsc(1),'wsc(i)=Amax1(0.00,(wcl(i)-wiltpt)*THKSL(i)*10.0)'  !dbmemo
-    supply=0.0
-    demand=0.0
-    ! dbmemo
-    ! if (omegaL(1) .gt. 0.3 .and. (omegaL(2) .le. 0.3 .or. omegaL(3) .le. 0.3)) then
-        ! write (*,*) 'smaller than 0.3'
-    ! endif 
-    do i=1,9
-        if(omegaL(i).gt.0.3)then
-            ! print*,'demand',FLDCAP,wcl(i+1),THKSL(i+1),omegaL(i+1)   !dbmemo third correction
-            supply=wsc(i)*(omegaL(i)-0.3)
-            ! supply=wsc(i)*omegaL(i)
-            demand=(FLDCAP-wcl(i+1))*THKSL(i+1)*10.0      &
-                &               *(1.0-omegaL(i+1))
-            exchangeL=AMIN1(supply,demand)
-            wsc(i)=wsc(i)- exchangeL
-            wsc(i+1)=wsc(i+1)+ exchangeL
-            wcl(i)=wsc(i)/(THKSL(i)*10.0)+wiltpt
-            wcl(i+1)=wsc(i+1)/(THKSL(i+1)*10.0)+wiltpt
-            ! write (*,*) wsc(1),i,exchangeL,supply,demand,'in loop'      !dbmemo
-        endif
-    enddo
-    ! write (*,*) wsc(1),'wsc(i)=wsc(i)- exchangeL',exchangeL,'exchangeL',wiltpt,'wiltpt'   !dbmemo  
-    wsc(10)=wsc(10)-wsc(10)*0.00001     ! Shuang modifed
-    runoff = runoff+wsc(10)*0.00001     ! Shuang modifed
-    wcl(10)=wsc(10)/(THKSL(10)*10.0)+wiltpt
-    ! end of water redistribution among soil layers
-    ! Redistribute evaporation among soil layers
-    Tsrdt=0.0
-    DO i=1,10
-        ! Fraction of SEVAP supplied by each soil layer
-        SRDT(I)=EXP(-6.73*(DEPTH(I)-THKSL(I)/2.0)/100.0) !/1.987
-        ! SRDT(I)=AMAX1(0.0,SRDT(I)*(wcl(i)-wiltpt)) !*THKSL(I))
-        Tsrdt=Tsrdt+SRDT(i)  ! to normalize SRDT(i)
-    enddo
-    do i=1,10
-        EVAPL(I)=Amax1(AMIN1(evap*SRDT(i)/Tsrdt,wsc(i)),0.0)  !mm
-        DWCL(I)=EVAPL(I)/(THKSL(I)*10.0) !ratio
-        wcl(i)=wcl(i)-DWCL(i)
-    enddo
-    evap=0.0       
-    do i=1,10
-        evap=evap+EVAPL(I)
-    enddo
-    ! Redistribute transpiration according to root biomass
-    ! and available water in each layer
-    tr_allo=0.0
-    do i=1,nfr
-        tr_ratio(i)=FRLEN(i)*wsc(i) !*(wcl(i)-wiltpt)) !*THKSL(I))
-        tr_allo=tr_allo+tr_ratio(i)
-    enddo
-    do i=1,nfr
-        plantup(i)=AMIN1(transp*tr_ratio(i)/tr_allo, wsc(i)) !mm              
-        wupl(i)=plantup(i)/(thksl(i)*10.0)
-        wcl(i)=wcl(i)-wupl(i)
-    enddo
-    
-    ! write (*,*) 'wcl(1)',wcl(1),'wsc(1)',wsc(1),'wupl(1)',wupl(1),'liq_water(1)',liq_water(1), &
-    ! & 'DWCL(1)',DWCL(1),'omegaL(1)',omegaL(1),'exchangeL',exchangeL !dbmemo
+            infilt = infilt + rain           ! ..int commented lines for soil thermal module, included in the previous loop; !mm/hour  
+        endif     
         
-    ! write(81,801) wcl(1),wcl(2),wcl(3),wcl(4),wcl(5),WTADD,infilt,ddd,wupl(1),DWCL(1),exchangeL,rain_t,melt,rain_new,infilt_dbmemo
-! 801    format(15(f15.9,","))       ! dbmemo
-    transp=0.0
-    do i=1,nfr
-        transp=transp+plantup(i)
-    enddo
-
-    ! ******************************************************    
-    ! water table module starts here
-    ! vtot = MAX(145.,wsc(1)+wsc(2)+wsc(3)+infilt)!+wsc(4)+wsc(5)   !total amount of water in top 500mm of soil  mm3/mm2 infilt here is standing water   infilt has distributed to wsc?
-    if (do_soilphy) then
-        ! vtot = wsc(1)+wsc(2)+wsc(3)+infilt+ice(1)*1000.*(10./9.)+ice(2)*1000.*(10./9.)+ice(3)*1000.*(10./9.)
-        ! vtot = wsc(1)+wsc(2)+wsc(3)+ice(1)*1000.*(10./9.)+ice(2)*1000.*(10./9.)+ice(3)*1000.*(10./9.)
-        ! vtot = wsc(1)+wsc(2)+wsc(3)+infilt
-        vtot = (liq_water(1)+liq_water(2)+liq_water(3))*1000+(ice(1)+ice(2)+ice(3))*1000+infilt
-        ! vtot = wsc(1)+wsc(2)+wsc(3)+infilt+ice(1)*1000.*(9./10.)+ice(2)*1000.*(9./10.)+ice(3)*1000.*(9./10.)
-        ! write(*,*) ice(1)*1000.,ice(2)*1000.,ice(3)*1000.,wsc(1),liq_water(1)*1000.
-    else 
-        vtot = wsc(1)+wsc(2)+wsc(3)+infilt
-    endif
-    ! infilt means standing water according to jiangjiang
-    ! vtot = MAX(145.,vtot+145.+rain-evap-transp-runoff)         ! vtot should not be smaller than 145, which is the water content when wt is at -300mm
-    phi = 0.56   !soil porosity   mm3/mm3   the same unit with theta
-    zmax = 300   !maximum water table depth   mm
-    thetasmin = 0.25    !minimum volumetric water content at the soil surface   cm3/cm3
-    zthetasmin = 100     !maximum depth where evaporation influences soil moisture   mm
-    az = (phi-thetasmin)/zthetasmin     ! gradient in soil moisture resulting from evaporation at the soil surface    mm-1
-    
-    zwt1 = -sqrt(3.0*(phi*zmax-vtot)/(2.0*az))
-    zwt2 = -(3.0*(phi*zmax-vtot)/(2.0*(phi-thetasmin)))
-    zwt3 = vtot-phi*zmax                                   
-    if ((zwt1 .ge. -100) .and. (zwt1 .le. 0))   zwt = zwt1  !the non-linear part of the water table changing line
-    if (zwt2 .lt. -100)                         zwt = zwt2  !the linear part of the water table changing line
-
-    ! if ((zwt2 .lt. -100) .and. (zwt2 .ge. -300))zwt = zwt2 !the linear part of the water table changing line valid when Vtot>145mm
-    ! if (zwt2 .le. -300)                         zwt = -300
-    if (phi*zmax .lt. vtot)                     zwt = zwt3  !the linear part when the water table is above the soil surface 
-    
-    ! if (do_soilphy) then
-    !     write(81,1810) WTADD,infilt,runoff,evap,transp,vtot,zwt,liq_water(1),liq_water(2),liq_water(3),liq_water(4),liq_water(5), &
-    !     & liq_water(6),liq_water(7),liq_water(8),liq_water(9),liq_water(10), &
-    !     & ice(1),ice(2),ice(3),ice(4),ice(5),ice(6),ice(7),ice(8),ice(9),ice(10), &
-    !     & wcl(1),wcl(2),wcl(3),wcl(4),wcl(5),wcl(6),wcl(7),wcl(8),wcl(9),wcl(10)
-    ! else
-    ! write(81,181)WTADD,infilt,runoff,evap,transp,vtot,zwt,wsc(1),wsc(2),wsc(3),wsc(4),  &
-    !     &        wsc(5),wsc(6),wsc(7),wsc(8),wsc(9),wsc(10),wcl(1),wcl(2),wcl(3),wcl(4),  &
-    !     &        wcl(5),wcl(6),wcl(7),wcl(8),wcl(9),wcl(10)
-    ! endif
-    ! 181	format(27(f15.9,","))
-    ! 1810    format(37(f15.9,","))
-    ! write(*,*) 'zwt',zwt!,'evap',evap,'transp',transp,'vtot',vtot         !show on screen          
+        infilt_dbmemo = infilt    
+        ! water infiltration through layers; Loop over all soil layers.
+        TWTADD=0
+        IF(infilt.GE.0.0)THEN
+            ! Add water to this layer, pass extra water to the next.
+            WTADD  = AMIN1(INFILT,infilt_max,AMAX1((FLDCAP-wcl(1))*thksl(1)*10.0,0.0)) ! from cm to mm
+            ! change water content of this layer
+            WCL(1) = (WCL(1)*(thksl(1)*10.0)+WTADD)/(thksl(1)*10.0)
+            TWTADD = TWTADD+WTADD       !calculating total added water to soil layers (mm)
+            INFILT = INFILT-WTADD !update infilt
+        ENDIF
         
-    ! water table module ends here
-    ! ******************************************************    
-
-
-        
-    ! Output fwsoil, omega, and topfws
-    ! ..int commented lines below for soil thermal module
-    
-    ! do i=1,nfr       
-    !     ome(i)=(wcl(i)-WILTPT)/(FLDCAP-WILTPT)
-    !     ome(i)=AMIN1(1.0,AMAX1(0.0,ome(i)))
-    !     fw(i)=amin1(1.0,3.333*ome(i))
-    ! enddo
-    ! topfws=amin1(1.0,(wcl(1)-WILTPT)/((FLDCAP-WILTPT)))    
-    ! ..int new lines added for soil thermal module 
-    do i=1,nfr       
         if (do_soilphy) then 
-           ome(i)=(liq_water(i)*100./thksl(i)-WILTPT)/(FLDCAP-WILTPT)
+            runoff= INFILT*0.005   !(infilt_rate = 0.0017 defined earlier by Yuan, changed  to 0.001 by shuang )
+        else
+            runoff=INFILT*0.001    ! Shuang added this elseif line! Shuang Modifed  Mar16 used to be 0.0019, the water lose too much lowest wt was >400
+        endif   
+        infilt = infilt-runoff
+        !----------------------------------------------------------------------------------------------------
+        if (transp .gt. 0.2 .and. transp .le. 0.22) then
+            infilt = infilt+transp*0.4
+        else if (transp .gt. 0.22) then
+            ! infilt = infilt+infilt*0.0165
+            infilt = infilt+transp*0.8
+            ! infilt = infilt+0.22*0.4+(transp-0.22)*0.9
+        else
+            infilt = infilt+transp*0.001
+        endif
+
+        if (evap .ge. 0.1 .and. evap .le. 0.15) then
+            infilt = infilt+evap*0.4
+        else if (evap .gt. 0.15) then
+            infilt = infilt+evap*0.8
+        else
+            infilt = infilt+evap*0.001
+        endif
+        !----------------------------------------------------------------------------------------------------   
+        ! water redistribution among soil layers
+        do i=1,10
+            wsc(i) = Amax1(0.00,(wcl(i)-wiltpt)*THKSL(i)*10.0)
+            ! ..int commented lines for soil thermal        
+            ! omegaL(i)=Amax1(0.001,(wcl(i)-WILTPT)/(FLDCAP-WILTPT))
+            if (do_soilphy) then 
+            omegaL(i)=Amax1(0.001,(liq_water(i)*100./thksl(i)-WILTPT)/(FLDCAP-WILTPT))
+            else
+            omegaL(i)=Amax1(0.001,(wcl(i)-WILTPT)/(FLDCAP-WILTPT))
+            endif        
+        enddo
+        ! write (*,*) wsc(1),'wsc(i)=Amax1(0.00,(wcl(i)-wiltpt)*THKSL(i)*10.0)'  !dbmemo
+        supply=0.0
+        demand=0.0
+        ! dbmemo
+        ! if (omegaL(1) .gt. 0.3 .and. (omegaL(2) .le. 0.3 .or. omegaL(3) .le. 0.3)) then
+            ! write (*,*) 'smaller than 0.3'
+        ! endif 
+        do i=1,9
+            if(omegaL(i).gt.0.3)then
+                ! print*,'demand',FLDCAP,wcl(i+1),THKSL(i+1),omegaL(i+1)   !dbmemo third correction
+                supply=wsc(i)*(omegaL(i)-0.3)
+                ! supply=wsc(i)*omegaL(i)
+                demand=(FLDCAP-wcl(i+1))*THKSL(i+1)*10.0      &
+                    &               *(1.0-omegaL(i+1))
+                exchangeL=AMIN1(supply,demand)
+                wsc(i)=wsc(i)- exchangeL
+                wsc(i+1)=wsc(i+1)+ exchangeL
+                wcl(i)=wsc(i)/(THKSL(i)*10.0)+wiltpt
+                wcl(i+1)=wsc(i+1)/(THKSL(i+1)*10.0)+wiltpt
+                ! write (*,*) wsc(1),i,exchangeL,supply,demand,'in loop'      !dbmemo
+            endif
+        enddo
+        ! write (*,*) wsc(1),'wsc(i)=wsc(i)- exchangeL',exchangeL,'exchangeL',wiltpt,'wiltpt'   !dbmemo  
+        wsc(10)=wsc(10)-wsc(10)*0.00001     ! Shuang modifed
+        runoff = runoff+wsc(10)*0.00001     ! Shuang modifed
+        wcl(10)=wsc(10)/(THKSL(10)*10.0)+wiltpt
+        ! end of water redistribution among soil layers
+        ! Redistribute evaporation among soil layers
+        Tsrdt=0.0
+        DO i=1,10
+            ! Fraction of SEVAP supplied by each soil layer
+            SRDT(I)=EXP(-6.73*(DEPTH(I)-THKSL(I)/2.0)/100.0) !/1.987
+            ! SRDT(I)=AMAX1(0.0,SRDT(I)*(wcl(i)-wiltpt)) !*THKSL(I))
+            Tsrdt=Tsrdt+SRDT(i)  ! to normalize SRDT(i)
+        enddo
+        do i=1,10
+            EVAPL(I)=Amax1(AMIN1(evap*SRDT(i)/Tsrdt,wsc(i)),0.0)  !mm
+            DWCL(I)=EVAPL(I)/(THKSL(I)*10.0) !ratio
+            wcl(i)=wcl(i)-DWCL(i)
+        enddo
+        evap=0.0       
+        do i=1,10
+            evap=evap+EVAPL(I)
+        enddo
+        ! Redistribute transpiration according to root biomass
+        ! and available water in each layer
+        tr_allo=0.0
+        do i=1,nfr
+            tr_ratio(i)=FRLEN(i)*wsc(i) !*(wcl(i)-wiltpt)) !*THKSL(I))
+            tr_allo=tr_allo+tr_ratio(i)
+        enddo
+        do i=1,nfr
+            plantup(i)=AMIN1(transp*tr_ratio(i)/tr_allo, wsc(i)) !mm              
+            wupl(i)=plantup(i)/(thksl(i)*10.0)
+            wcl(i)=wcl(i)-wupl(i)
+        enddo
+        
+        ! write (*,*) 'wcl(1)',wcl(1),'wsc(1)',wsc(1),'wupl(1)',wupl(1),'liq_water(1)',liq_water(1), &
+        ! & 'DWCL(1)',DWCL(1),'omegaL(1)',omegaL(1),'exchangeL',exchangeL !dbmemo
+            
+        ! write(81,801) wcl(1),wcl(2),wcl(3),wcl(4),wcl(5),WTADD,infilt,ddd,wupl(1),DWCL(1),exchangeL,rain_t,melt,rain_new,infilt_dbmemo
+    ! 801    format(15(f15.9,","))       ! dbmemo
+        transp=0.0
+        do i=1,nfr
+            transp=transp+plantup(i)
+        enddo
+
+        ! ******************************************************    
+        ! water table module starts here
+        ! vtot = MAX(145.,wsc(1)+wsc(2)+wsc(3)+infilt)!+wsc(4)+wsc(5)   !total amount of water in top 500mm of soil  mm3/mm2 infilt here is standing water   infilt has distributed to wsc?
+        if (do_soilphy) then
+            ! vtot = wsc(1)+wsc(2)+wsc(3)+infilt+ice(1)*1000.*(10./9.)+ice(2)*1000.*(10./9.)+ice(3)*1000.*(10./9.)
+            ! vtot = wsc(1)+wsc(2)+wsc(3)+ice(1)*1000.*(10./9.)+ice(2)*1000.*(10./9.)+ice(3)*1000.*(10./9.)
+            ! vtot = wsc(1)+wsc(2)+wsc(3)+infilt
+            vtot = (liq_water(1)+liq_water(2)+liq_water(3))*1000+(ice(1)+ice(2)+ice(3))*1000+infilt
+            ! vtot = wsc(1)+wsc(2)+wsc(3)+infilt+ice(1)*1000.*(9./10.)+ice(2)*1000.*(9./10.)+ice(3)*1000.*(9./10.)
+            ! write(*,*) ice(1)*1000.,ice(2)*1000.,ice(3)*1000.,wsc(1),liq_water(1)*1000.
         else 
-           ome(i)=(wcl(i)-WILTPT)/(FLDCAP-WILTPT)
-           ome(i)=AMIN1(1.0,AMAX1(0.0,ome(i)))
-        endif 
-        fw(i)=amin1(1.0,3.333*ome(i))
-    enddo
-    
-    if (do_soilphy) then 
-        topfws=amax1(0.0,topfws)
-    else 
-        topfws=amin1(1.0,(wcl(1)-WILTPT)/((FLDCAP-WILTPT)))
-    endif     
+            vtot = wsc(1)+wsc(2)+wsc(3)+infilt
+        endif
+        ! infilt means standing water according to jiangjiang
+        ! vtot = MAX(145.,vtot+145.+rain-evap-transp-runoff)         ! vtot should not be smaller than 145, which is the water content when wt is at -300mm
+        phi = 0.56   !soil porosity   mm3/mm3   the same unit with theta
+        zmax = 300   !maximum water table depth   mm
+        thetasmin = 0.25    !minimum volumetric water content at the soil surface   cm3/cm3
+        zthetasmin = 100     !maximum depth where evaporation influences soil moisture   mm
+        az = (phi-thetasmin)/zthetasmin     ! gradient in soil moisture resulting from evaporation at the soil surface    mm-1
+        
+        zwt1 = -sqrt(3.0*(phi*zmax-vtot)/(2.0*az))
+        zwt2 = -(3.0*(phi*zmax-vtot)/(2.0*(phi-thetasmin)))
+        zwt3 = vtot-phi*zmax                                   
+        if ((zwt1 .ge. -100) .and. (zwt1 .le. 0))   zwt = zwt1  !the non-linear part of the water table changing line
+        if (zwt2 .lt. -100)                         zwt = zwt2  !the linear part of the water table changing line
 
-    fwsoil=0.0
-    omega=0.0
-    do i=1,nfr
-        fwsoil=fwsoil+fw(i)*frlen(i)
-        omega=omega+ome(i)*frlen(i)
-    enddo
-    
-    !    write(81,181)WTADD,infilt,runoff,evap,transp,vtot,zwt,wsc(1),wsc(2),wsc(3),wsc(4),  &
-    !        &        wsc(5),wsc(6),wsc(7),wsc(8),wsc(9),wsc(10),wcl(1),wcl(2),wcl(3),wcl(4),  &
-    !        &        wcl(5),wcl(6),wcl(7),wcl(8),wcl(9),wcl(10)
-    !181	format(27(f15.9,","))    
+        ! if ((zwt2 .lt. -100) .and. (zwt2 .ge. -300))zwt = zwt2 !the linear part of the water table changing line valid when Vtot>145mm
+        ! if (zwt2 .le. -300)                         zwt = -300
+        if (phi*zmax .lt. vtot)                     zwt = zwt3  !the linear part when the water table is above the soil surface 
+        
+        ! if (do_soilphy) then
+        !     write(81,1810) WTADD,infilt,runoff,evap,transp,vtot,zwt,liq_water(1),liq_water(2),liq_water(3),liq_water(4),liq_water(5), &
+        !     & liq_water(6),liq_water(7),liq_water(8),liq_water(9),liq_water(10), &
+        !     & ice(1),ice(2),ice(3),ice(4),ice(5),ice(6),ice(7),ice(8),ice(9),ice(10), &
+        !     & wcl(1),wcl(2),wcl(3),wcl(4),wcl(5),wcl(6),wcl(7),wcl(8),wcl(9),wcl(10)
+        ! else
+        ! write(81,181)WTADD,infilt,runoff,evap,transp,vtot,zwt,wsc(1),wsc(2),wsc(3),wsc(4),  &
+        !     &        wsc(5),wsc(6),wsc(7),wsc(8),wsc(9),wsc(10),wcl(1),wcl(2),wcl(3),wcl(4),  &
+        !     &        wcl(5),wcl(6),wcl(7),wcl(8),wcl(9),wcl(10)
+        ! endif
+        ! 181	format(27(f15.9,","))
+        ! 1810    format(37(f15.9,","))
+        ! write(*,*) 'zwt',zwt!,'evap',evap,'transp',transp,'vtot',vtot         !show on screen          
+            
+        ! water table module ends here
+        ! ******************************************************    
 
-    return
-end
+
+            
+        ! Output fwsoil, omega, and topfws
+        ! ..int commented lines below for soil thermal module
+        
+        ! do i=1,nfr       
+        !     ome(i)=(wcl(i)-WILTPT)/(FLDCAP-WILTPT)
+        !     ome(i)=AMIN1(1.0,AMAX1(0.0,ome(i)))
+        !     fw(i)=amin1(1.0,3.333*ome(i))
+        ! enddo
+        ! topfws=amin1(1.0,(wcl(1)-WILTPT)/((FLDCAP-WILTPT)))    
+        ! ..int new lines added for soil thermal module 
+        do i=1,nfr       
+            if (do_soilphy) then 
+            ome(i)=(liq_water(i)*100./thksl(i)-WILTPT)/(FLDCAP-WILTPT)
+            else 
+            ome(i)=(wcl(i)-WILTPT)/(FLDCAP-WILTPT)
+            ome(i)=AMIN1(1.0,AMAX1(0.0,ome(i)))
+            endif 
+            fw(i)=amin1(1.0,3.333*ome(i))
+        enddo
+        
+        if (do_soilphy) then 
+            topfws=amax1(0.0,topfws)
+        else 
+            topfws=amin1(1.0,(wcl(1)-WILTPT)/((FLDCAP-WILTPT)))
+        endif     
+
+        fwsoil=0.0
+        omega=0.0
+        do i=1,nfr
+            fwsoil=fwsoil+fw(i)*frlen(i)
+            omega=omega+ome(i)*frlen(i)
+        enddo
+        
+        !    write(81,181)WTADD,infilt,runoff,evap,transp,vtot,zwt,wsc(1),wsc(2),wsc(3),wsc(4),  &
+        !        &        wsc(5),wsc(6),wsc(7),wsc(8),wsc(9),wsc(10),wcl(1),wcl(2),wcl(3),wcl(4),  &
+        !        &        wcl(5),wcl(6),wcl(7),wcl(8),wcl(9),wcl(10)
+        !181	format(27(f15.9,","))    
+
+        return
+    end
 
 
     subroutine snow_d(rain_d,lat,days,ta,snow_dsim,fa,fsub,rho_snow,melt,dcount,decay_m)

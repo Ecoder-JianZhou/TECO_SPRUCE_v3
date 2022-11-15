@@ -19,7 +19,7 @@ module mod_data
         INTEGER, dimension (:), allocatable :: hour
         real,    dimension (:), allocatable :: Tair
         real,    dimension (:), allocatable :: Tsoil
-        real,    dimension (:), allocatable :: RH
+        real,    dimension (:), allocatable :: RH           ! RH seems confused in forcing and soil respiration
         real,    dimension (:), allocatable :: VPD
         real,    dimension (:), allocatable :: Rain
         real,    dimension (:), allocatable :: WS
@@ -51,9 +51,9 @@ module mod_data
     ! initialize parameters ------------------------------------------------------------
     ! parameters for cycle
     integer iyear, iday, ihour
-    real radsol, wind, tair, VPD, TairK, co2ca
+    real radsol, wind, tair, Dair, TairK, co2ca, par, rain, RH, Tsoil
     ! vegetation states and flux
-    real GPP, NPP, NSCmin, fnsc, nsc, NSCmax 
+    real GPP, NPP, NSCmin, fnsc, nsc, NSCmax , Vcmx0
     real RmLeaf,RmStem,RmRoot                           ! maintanence respiration
     real RgLeaf,RgStem,RgRoot                           ! growth respiration 
     real Rgrowth,Rnitrogen,Rmain,Rauto !respirations
@@ -62,12 +62,14 @@ module mod_data
     real Rsoilab1, Rsoilab2, QLair, QLleaf, QLsoil, Rsoilab3, Rsoilabs      ! calculate in xlayer and used in soil module, QLsoil and Rsoilab3, Rsoilabs seem be calculated both xlayers and soil T dynamic?
     real rhocp, H2OLv, slope, psyc, Cmolar, fw1, Rsoil, rLAI, Hsoil ! seem both in xlayer and soil T dynamic
     real snow_depth, snow_depth_e, snow_dsim
+    real,dimension(10):: thksl,wupl,evapl,wcl,FRLEN   ! wsc is the output from soil water module
+    real runoff, wsc(10)
 
     real QC(8) !  leaf,wood,root,fine lit.,coarse lit.,Micr,Slow,Pass
     real QN(8),CN0(8),CN(8),OutN(8),QNplant,QNminer
     real N_uptake,N_leach,N_vol,N_fixation,N_deposit,N_fert
 
-    real,dimension(10):: thksl,wupl,evapl,wcl,FRLEN   ! wsc is the output from soil water module
+    
     
     integer, parameter :: nlayers=10
     real CH4(nlayers),CH4_V(nlayers),CH4V_d(nlayers) 
