@@ -16,4 +16,5 @@ program TECO
     endif
     write(*,*)Dheat,gddonset
     call teco_simu()
+    deallocate(forcing_data)
 end program TECO

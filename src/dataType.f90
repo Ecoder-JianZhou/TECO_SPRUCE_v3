@@ -7,7 +7,8 @@ module mod_data
     ! for driver --------------
     integer iforcing, nforcing                              ! for cycle
     integer, parameter :: nterms = 11, max_nlines=150000    ! year doy hour Tair Tsoil RH VPD Rain WS PAR CO2
-    
+    real, dimension (:,:), allocatable :: forcing_data
+
     ! contant parameters------------------------------------
     real,dimension(3):: tauL,rhoL,rhoS
     real pi,emleaf,emsoil,Rconst,sigma,cpair,Patm,Trefk
@@ -67,6 +68,36 @@ module mod_data
     real fa,fsub,rho_snow,decay_m   
     real fwsoil,topfws,omega,nsc 
 
+    ! -------------------------------------
+    real GDD5
+    integer onset !flag of phenological stage
+    integer phenoset
+
+    real fwsoil_yr,omega_yr,topfws_yr,diff_yr,diff_d
+    real gpp_yr,NPP_yr,NEE_yr,Rh_yr
+    real Rh4_yr,Rh5_yr,Rh6_yr,Rh7_yr,Rh8_yr,Ra_yr
+    real R_Ntr_yr
+    real GL_yr,GR_yr,GW_yr
+    real Pool1,Pool2,Pool3,Pool4,Pool5,Pool6,Pool7,Pool8
+    real out1_yr,out2_yr,out3_yr,out4_yr,out5_yr,out6_yr,out7_yr,out8_yr
+
+    real runoff_d,runoff_yr,rain_d,rain_yr
+    real evap_yr,transp_yr
+
+    real N_up_yr,N_fix_yr,N_dep_yr,N_leach_yr,N_vol_yr
+
+    real soilt_d_simu(11),soilt_d_obs(7),ice_d_simu(10)
+    real simuCH4_d, Pro_sum_d, Oxi_sum_d, Fdifu1_d, Ebu_sum_d, Pla_sum_d
+    real gpp_d,NPP_d,gpp_ra,NEP_d, NEE_d
+    real evap_d,transp_d, Hcanop_d
+    real ta, Ts
+    real LE_d, RaL, RaS, RaR, Rauto, Rh_d
+    real N_up_d, N_fix_d, N_dep_d, N_leach_d, N_vol_d
+    real PAR_d, VPD_d, RECO_d, RLEAV_d, RWOOD_d, RROOT_d
+    real GL_d, GW_d, GR_d, LFALL_d, NUP_d, NVOL_d, NLEACH_d
+    real NMIN_d, N_LG_d, N_WG_d, N_RG_d, N_LF_d
+    real N_WF_d, N_RF_d, WFALL_d, RFALL_d
+
     integer i
     contains
     subroutine get_params()
@@ -107,11 +138,8 @@ module mod_data
         nsc=85.35
         QC    = (/450.,380.,250.,119.,300.,322.,38340.,23120./) 
         CN0   = (/50.,350.,60.,40.,300.,10.,20.,12./)
-        ! thickness of every soil layer
-        thksl = (/10.,10.,10.,10.,10.,20.,20.,20.,20.,20./)
-        ! ratio of roots in every layer, Oak Ridge FACE
-        ! FRLEN = (/0.1,0.25,0.25,0.2,0.1,0.05,0.025,0.015,0.005,0.005/)  ! JJ and Yuanyuan
-        FRLEN = (/0.75,0.2,0.02,0.015,0.005,0.0,0.0,0.0,0.0,0.0/)  ! Shuang
+        thksl = (/10.,10.,10.,10.,10.,20.,20.,20.,20.,20./)         ! thickness of every soil layer
+        FRLEN = (/0.75,0.2,0.02,0.015,0.005,0.0,0.0,0.0,0.0,0.0/)  ! ratio of roots in every layer, Oak Ridge FACE: Shuang
         ! update: Shuang methane bog species even more shallowly rooted than the tundra
         ! add initials for methane module Shuang version
         CH4_V = (/0.,0.,0.,0.,0.,0.,0.,0.,0.,0./)
@@ -136,27 +164,16 @@ module mod_data
         liq_water=(/0.01, 0.056, 0.056, 0.056, 0.056, 0.056, 0.056,0.056,0.056,0.056/)    ! unit m
         zwt=0.0
         water_tw=zwt*0.001    
-        
-        
-        ! Nitrogen input
-        ! N_deposit=0.000144634702 !(gN/h/m2, 1.2+0.067 gN/yr/m2,Oak ridge)
-        ! 0.7 gN/yr/m2, 13.4 kg N ha-1 yr-1, 2000, Dentener et al. 2006, GBC, Duke FACE
-        N_deposit=2.34/8760. !(gN/h/m2, )
-
-        ! N_fert=0. ! (20.0 gN m-2 yr-1, in spring, from 2004, Oak Ridge)
+        N_deposit = 2.34/8760. ! Nitrogen input (gN/h/m2, )
         N_fert=0. !5.6 ! (11.2 gN m-2 yr-1, in spring, Duke Forest FACE)
 
         ! the unit of residence time is transformed from yearly to hourly
-        tauC=(/tau_L,tau_W,tau_R,tau_F,tau_C,&
-            &           tau_Micr,tau_Slow,tau_Pass/)*8760. 
+        tauC=(/tau_L,tau_W,tau_R,tau_F,tau_C,tau_Micr,tau_Slow,tau_Pass/)*8760. 
         SLA=SLAx/10000.         ! Convert unit from cm2/g to m2/g
-        ! growth rates of plant
-        GLmax=GLmx/8760.
+        GLmax=GLmx/8760.    ! growth rates of plant
         GRmax=GRmx/8760.
         Gsmax=GSmx/8760.
         ! end of setting parameters
-        ! input_data=forcing_data
-        ! end of reading forcing data
 
         ! ===============================================================
         ! cycle  ! skip the following blocks, read input data only.
@@ -260,7 +277,7 @@ module mod_data
         transp_yr=0.0
         evap_yr=0.0
         runoff_yr=0.0
-        Simu_lit=0.
+        ! Simu_lit=0.
             
         ! Nitrogen fluxes
         N_up_yr=0
@@ -272,7 +289,7 @@ module mod_data
         fwsoil_yr=0.
         omega_yr=0.
         topfws_yr=0.
-        hoy=0
+        ! hoy=0
     end subroutine init_year
 
     subroutine init_day()
@@ -285,7 +302,6 @@ module mod_data
         
         soilt_d_obs=(/0.,0.,0.,0.,0.,0.,0./) 
         zwt_d=0.0
-        obs_counter = (/0,0,0,0,0,0,0/) 
         ! --------------------------------------------------
         simuCH4_d=0.0
         Pro_sum_d=0.0
@@ -397,8 +413,6 @@ module mod_data
     subroutine get_forcingdata()
         implicit none
         real temp_forcing(nterms, max_nlines)
-        
-        ! integer m,n,istat1,lines,yr_length
         integer STAT, COUNT, n, m
         COUNT = 0
         m     = 1
@@ -411,6 +425,8 @@ module mod_data
         ENDDO
         nforcing = COUNT - 1
         CLOSE(1)
+        allocate(forcing_data(nterms,nforcing) ) 
+        forcing_data = temp_forcing(:,:nforcing)
     end subroutine get_forcingdata
 
     subroutine add()
