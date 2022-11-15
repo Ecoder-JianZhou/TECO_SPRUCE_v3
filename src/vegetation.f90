@@ -21,6 +21,7 @@ module mod_vegetation
    real windUx, Vcmxx, eJmxx
    real Aleaf(2), Eleaf(2), Hleaf(2), Tleaf(2), co2ci(2)
    real gbleaf(2), gsleaf(2)
+   real Tlk1, Tlk2
    ! ---------------------------------------------------------------------------------
    data Gaussx/0.0469101, 0.2307534, 0.5, 0.7692465, 0.9530899/        ! 5-point
    data Gaussw/0.1184635, 0.2393144, 0.2844444, 0.2393144, 0.1184635/
@@ -40,6 +41,8 @@ contains
       ! tair   = in_tair
       ! VPD    = in_VPD             ! Dair
       ! co2ca  = in_co2ca           ! co2ca = 380.0*1.0E-6
+      real Dair
+      Dair = VPD
 
       call yrday()                                            ! calculate beam fraction in incoming solar radiation
       ! hours  = int(doy)*1.0+hour/24.0                       ! Jian: seem no used
@@ -98,31 +101,20 @@ contains
    ! ------------- plant growth model --------------------------------------------------------------------
    subroutine plantgrowth()
       implicit none
-      real NSCmin, NSCmax, fnsc
-      real CN(8), CN0(8), NSN, nsCN
-      real SnscnL, SnscnS, SnscnR
-      real store, Storage, GDD5, stor_use, accumulation, gddonset
-      integer onset
-      real GLmax, GRmax, GSmax, TauLeaf
+      real store
       real GrowthP, GrowthL, GrowthR, GrowthS
-      real Tair, omega, LAI, LAIMAX, LAIMIN, SLA
-      ! biomass
-      real bmleaf, bmroot, bmstem, bmplant, NPP
-      real ht, hmax, hl0, CNP0
+      real hmax, hl0, CNP0
       REAL LAIMAX0, la0, GPmax, acP, c1, c2
-      real Rootmax, Stemmax, SapS, SapR
-      real bmL, bmR, bmP, bmS, StemSap, RootSap
-      real Rgrowth, Rgroot, Rgleaf, Rgstem
+      real bmL, bmR, bmP, bmS !, StemSap, RootSap
+      ! real Rgrowth, Rgroot, Rgleaf, Rgstem
       real, save :: addaccu = 0, GrowthLaccu = 0, GrowthSaccu = 0, GrowthRaccu = 0
-      ! scalars
-      real St, Sw, Ss, Sn, SL_rs, SR_rs, Slai, Sps, SNgrowth, phiN
-      real RS, RS0, RSw
+      real St, Sw, Ss, Sn, SL_rs, SR_rs, Slai, phiN            ! scalars
+      real RS, RSw
       real gamma_W, gamma_Wmax, gamma_T, gamma_Tmax, gamma_N
       real beta_T, Tcold, Twarm, Topt
       real bW, bT, W
-      real L_fall, L_add, add, NL_fall, NL_add, Tau_L
+      real L_fall, L_add, add, NL_fall, NL_add
       real alpha_L, alpha_W, alpha_R, alpha_St
-      integer i
 
       Twarm = 35.0
       Tcold = 5.0
@@ -187,27 +179,18 @@ contains
       W = AMIN1(1.0, 3.333*omega)
 
       ! Plant growth and allocation, based on LM3V
-      GPmax = (GLmax*bmL + GSmax*StemSap + GRmax*bmR) !/acP
-      GrowthP = AMIN1(GPmax*fnsc*St*(1.-exp(-NSN)),  & !
-          &              0.004*NSC,&
-          &              0.004*NSN*CNp0)
+      GPmax   = (GLmax*bmL + GSmax*StemSap + GRmax*bmR)                        !/acP
+      GrowthP = AMIN1(GPmax*fnsc*St*(1.-exp(-NSN)),0.004*NSC,0.004*NSN*CNp0)
+      GrowthL = MAX(0.0, GrowthP*0.5)                                          ! updated when QC leaf and wood changed due to the change of plot area for tree biomass
+      GrowthR = MIN(GrowthP*0.4, MAX(0.0, 0.75/Sw*bmL - bmR))                  ! *c1/(1.+c1+c2)
+      GrowthS = MAX(0.0, GrowthP - (GrowthL + GrowthR))                        ! *c2/(1.+c1+c2)
 
-      ! c1=(bmR+200.)/bmL*CN(1)/CN0(1) !+N_deficit/NSN
-      ! c1=bmL/bmR*CN(1)/CN0(1) !+N_deficit/NSN
-      ! c2=0.5*250e3*SLA*0.00021*ht*2.
-      ! write(*,*)LAI
-      ! GrowthL=MAX(0.0,MIN(GrowthP*0.5,0.05*(LAIMAX-LAI)/SLA))    ! 1./(1.+c1+c2)
-      ! GrowthL=MAX(0.0,GrowthP*0.43)
-      GrowthL = MAX(0.0, GrowthP*0.5)      ! updated when QC leaf and wood changed due to the change of plot area for tree biomass
-      GrowthR = MIN(GrowthP*0.4, MAX(0.0, 0.75/Sw*bmL - bmR))  ! *c1/(1.+c1+c2)
-      ! GrowthR=MIN(GrowthP*0.35,MAX(0.0,0.75/Sw*bmL-bmR))  ! *c1/(1.+c1+c2)
-      GrowthS = MAX(0.0, GrowthP - (GrowthL + GrowthR))         ! *c2/(1.+c1+c2)
-      NPP = GrowthL + GrowthR + GrowthS + add       ! Modified by Jiang Jiang 2015/10/13
-      addaccu = addaccu + add
+      NPP         = GrowthL + GrowthR + GrowthS + add       ! Modified by Jiang Jiang 2015/10/13
+      addaccu     = addaccu + add
       GrowthLaccu = GrowthLaccu + GrowthL
       GrowthRaccu = GrowthRaccu + GrowthR
       GrowthSaccu = GrowthSaccu + GrowthS
-      ! print*,'add',addaccu,GrowthLaccu,GrowthRaccu,GrowthSaccu
+      
       if (NPP .eq. 0.0) then
          alpha_L = 0.333
          alpha_W = 0.333
@@ -217,11 +200,12 @@ contains
          alpha_W = GrowthS/NPP
          alpha_R = GrowthR/NPP
       end if
+
       ! Carbon cost for growth
       ! Rgrowth,Rgroot,Rgleaf,Rgstem, 0.5 is from IBIS and Amthor, 1984
-      Rgleaf = 0.5*GrowthL
-      Rgstem = 0.5*GrowthS
-      Rgroot = 0.5*GrowthR
+      Rgleaf  = 0.5*GrowthL
+      Rgstem  = 0.5*GrowthS
+      Rgroot  = 0.5*GrowthR
       Rgrowth = Rgleaf + Rgstem + Rgroot
       ! Leaf litter
       gamma_Wmax = 0.12/24. ! maxmum leaf fall rate per hour
@@ -242,18 +226,18 @@ contains
          gamma_W = 0.
          gamma_T = 0.
       end if
+
       gamma_N = 1.0/Tau_L*Sw      ! Modify by Jiang Jiang 2015/10/20
       if (LAI < LAIMIN) then
          gamma_W = 0.
          gamma_T = 0.
          gamma_N = 0.
       end if
-      ! L_fall=bmleaf*0.48*AMIN1((gamma_T+gamma_N),0.99)
-      L_fall = bmleaf*0.48*gamma_N
-
+      L_fall = bmleaf*0.48*gamma_N     ! L_fall=bmleaf*0.48*AMIN1((gamma_T+gamma_N),0.99)
       return
    end
-
+   
+   ! --------- yrday --------------------------------------------------------------
    subroutine yrday()
       real pidiv, slatx, sindec, cosdec
       real a, b, sinbet0, solext, tmprat, tmpR, tmpK, fdiff
@@ -283,7 +267,7 @@ contains
       return
    end subroutine yrday
 
-! used by canopy module ------------------------------------------------------
+   !-----------  used by canopy module ------------------------------------------------------
    subroutine xlayers() ! added from soil thermal ..int
       ! the multi-layered canopy model developed by
       ! Ray Leuning with the new radiative transfer scheme
@@ -291,26 +275,7 @@ contains
       ! 12/Sept/96 (YPW) correction for mean surface temperature of sunlit
       ! and shaded leaves
       ! Tleaf,i=sum{Tleaf,i(n)*fslt*Gaussw(n)}/sum{fslt*Gaussw(n)}
-      ! ---------------------------------------------------------------------
-      !
-      ! real tauL(3),rhoL(3),rhoS(3),Qabs(3,2),Radabv(2),Rnstar(2)
-      ! real Aleaf(2),Eleaf(2),Hleaf(2),Tleaf(2),co2ci(2)
-      ! real gbleaf(2),gsleaf(2),QSabs(3,2),Qasoil(2)
-      ! integer ng,nw
-      ! real rhoc(3,2),reff(3,2),kpr(3,2),scatt(2)       !Goudriaan
-
-      ! real rsoil,rlai,raero,LAI
-      ! real wsmax,wsmin,WILTPT,FILDCP,wcl(10)
-      ! real gddonset
-      ! ! additional arrays to allow output of info for each Layer
-      ! real RnStL(5),QcanL(5),RcanL(5),AcanL(5),EcanL(5),HcanL(5)
-      ! real GbwcL(5),GswcL(5)
-
-      ! !   *** ..int
-      ! !*************************
-      ! real testout(11)
-      ! logical do_soilphy
-      !   *** .int
+      ! -------------------------------------------------------------------------------------
       real :: Rnst1 = 0.0, Rnst2 = 0.0, Qcan1 = 0.0, Qcan2 = 0.0 !net rad, sunlit, vis rad
       real :: Rcan1 = 0.0, Rcan2 = 0.0, Hcan1 = 0.0, Hcan2 = 0.0 !NIR rad !Sens heat
       real :: Gbwc1 = 0.0, Gbwc2 = 0.0, Gswc1 = 0.0, Gswc2 = 0.0 !Boundary layer conductance; Canopy conductance
@@ -346,38 +311,38 @@ contains
       end if
       ! Goudriaan theory as used in Leuning et al 1995 (Eq Nos from Goudriaan & van Laar, 1994)
       ! Effective extinction coefficient for diffuse radiation Goudriaan & van Laar Eq 6.6)
-      pi180 = 3.1416/180.
+      pi180   = 3.1416/180.
       cozen15 = cos(pi180*15)
       cozen45 = cos(pi180*45)
       cozen75 = cos(pi180*75)
-      xK15 = xphi1/cozen15 + xphi2
-      xK45 = xphi1/cozen45 + xphi2
-      xK75 = xphi1/cozen75 + xphi2
-      transd = 0.308*exp(-xK15*FLAIT) + 0.514*exp(-xK45*FLAIT) +     &
+      xK15    = xphi1/cozen15 + xphi2
+      xK45    = xphi1/cozen45 + xphi2
+      xK75    = xphi1/cozen75 + xphi2
+      transd  = 0.308*exp(-xK15*FLAIT) + 0.514*exp(-xK45*FLAIT) +     &
                 &       0.178*exp(-xK75*FLAIT)
-      extkd = (-1./FLAIT)*alog(transd)
-      extkn = extkd                        !N distribution coeff
+      extkd   = (-1./FLAIT)*alog(transd)
+      extkn   = extkd                        !N distribution coeff
 
       ! canopy reflection coefficients (Array indices: first;  1=VIS,  2=NIR
       !   second; 1=beam, 2=diffuse
       do nw = 1, 2  ! nw:1=VIS, 2=NIR
-         scatt(nw) = tauL(nw) + rhoL(nw)                                          ! scattering coeff
-         if ((1.-scatt(nw)) < 0.0) scatt(nw) = 0.9999                                  ! Weng 10/31/2008
-         kpr(nw, 1) = extKb*sqrt(1.-scatt(nw))                                   ! modified k beam scattered (6.20)
-         kpr(nw, 2) = extkd*sqrt(1.-scatt(nw))                                   ! modified k diffuse (6.20)
-         rhoch = (1.-sqrt(1.-scatt(nw)))/(1.+sqrt(1.-scatt(nw)))            ! canopy reflection black horizontal leaves (6.19)
-         rhoc15 = 2.*xK15*rhoch/(xK15 + extkd)                                 ! canopy reflection (6.21) diffuse
-         rhoc45 = 2.*xK45*rhoch/(xK45 + extkd)
-         rhoc75 = 2.*xK75*rhoch/(xK75 + extkd)
+         scatt(nw)   = tauL(nw) + rhoL(nw)                                               ! scattering coeff
+         if ((1.-scatt(nw)) < 0.0) scatt(nw) = 0.9999                                    ! Weng 10/31/2008
+         kpr(nw, 1)  = extKb*sqrt(1.-scatt(nw))                                          ! modified k beam scattered (6.20)
+         kpr(nw, 2)  = extkd*sqrt(1.-scatt(nw))                                          ! modified k diffuse (6.20)
+         rhoch       = (1.-sqrt(1.-scatt(nw)))/(1.+sqrt(1.-scatt(nw)))                   ! canopy reflection black horizontal leaves (6.19)
+         rhoc15      = 2.*xK15*rhoch/(xK15 + extkd)                                      ! canopy reflection (6.21) diffuse
+         rhoc45      = 2.*xK45*rhoch/(xK45 + extkd)
+         rhoc75      = 2.*xK75*rhoch/(xK75 + extkd)
          rhoc(nw, 2) = 0.308*rhoc15 + 0.514*rhoc45 + 0.178*rhoc75
-         rhoc(nw, 1) = 2.*extKb/(extKb + extkd)*rhoch                               ! canopy reflection (6.21) beam
+         rhoc(nw, 1) = 2.*extKb/(extKb + extkd)*rhoch                                    ! canopy reflection (6.21) beam
          reff(nw, 1) = rhoc(nw, 1) + (rhoS(nw) - rhoc(nw, 1))*exp(-2.*kpr(nw, 1)*FLAIT)  ! effective canopy-soil reflection coeff - beam (6.27)
          reff(nw, 2) = rhoc(nw, 2) + (rhoS(nw) - rhoc(nw, 2))*exp(-2.*kpr(nw, 2)*FLAIT)  ! effective canopy-soil reflection coeff - diffuse (6.27)
       end do
       ! isothermal net radiation & radiation conductance at canopy top - needed to calc emair
       call Radiso()           ! Jian: some parameters not initialization.
       TairK = Tair + 273.2
-      ! below
+
       do ng = 1, 5
          flai = gaussx(ng)*FLAIT
          ! radiation absorption for visible and near infra-red
@@ -394,46 +359,46 @@ contains
          else
             call agsean_ngt()
          end if
-         fslt = exp(-extKb*flai)                        !fraction of sunlit leaves
-         fshd = 1.0 - fslt                                !fraction of shaded leaves
-         Rnst1 = Rnst1 + fslt*Rnstar(1)*Gaussw(ng)*FLAIT  !Isothermal net rad`
-         Rnst2 = Rnst2 + fshd*Rnstar(2)*Gaussw(ng)*FLAIT
+         fslt      = exp(-extKb*flai)                        !fraction of sunlit leaves
+         fshd      = 1.0 - fslt                                !fraction of shaded leaves
+         Rnst1     = Rnst1 + fslt*Rnstar(1)*Gaussw(ng)*FLAIT  !Isothermal net rad`
+         Rnst2     = Rnst2 + fshd*Rnstar(2)*Gaussw(ng)*FLAIT
          RnstL(ng) = Rnst1 + Rnst2
 
-         Qcan1 = Qcan1 + fslt*Qabs(1, 1)*Gaussw(ng)*FLAIT  !visible
-         Qcan2 = Qcan2 + fshd*Qabs(1, 2)*Gaussw(ng)*FLAIT
+         Qcan1     = Qcan1 + fslt*Qabs(1, 1)*Gaussw(ng)*FLAIT  !visible
+         Qcan2     = Qcan2 + fshd*Qabs(1, 2)*Gaussw(ng)*FLAIT
          QcanL(ng) = Qcan1 + Qcan2
 
-         Rcan1 = Rcan1 + fslt*Qabs(2, 1)*Gaussw(ng)*FLAIT  !NIR
-         Rcan2 = Rcan2 + fshd*Qabs(2, 2)*Gaussw(ng)*FLAIT
+         Rcan1     = Rcan1 + fslt*Qabs(2, 1)*Gaussw(ng)*FLAIT  !NIR
+         Rcan2     = Rcan2 + fshd*Qabs(2, 2)*Gaussw(ng)*FLAIT
          RcanL(ng) = Rcan1 + Rcan2
 
          if (Aleaf(1) .lt. 0.0) Aleaf(1) = 0.0      !Weng 2/16/2006
          if (Aleaf(2) .lt. 0.0) Aleaf(2) = 0.0      !Weng 2/16/2006
 
-         Acan1 = Acan1 + fslt*Aleaf(1)*Gaussw(ng)*FLAIT*stom_n    !amphi/hypostomatous
-         Acan2 = Acan2 + fshd*Aleaf(2)*Gaussw(ng)*FLAIT*stom_n
-         AcanL(ng) = Acan1 + Acan2
+         Acan1      = Acan1 + fslt*Aleaf(1)*Gaussw(ng)*FLAIT*stom_n    !amphi/hypostomatous
+         Acan2      = Acan2 + fshd*Aleaf(2)*Gaussw(ng)*FLAIT*stom_n
+         AcanL(ng)  = Acan1 + Acan2
 
          layer1(ng) = Aleaf(1)
          layer2(ng) = Aleaf(2)
 
-         Ecan1 = Ecan1 + fslt*Eleaf(1)*Gaussw(ng)*FLAIT
-         Ecan2 = Ecan2 + fshd*Eleaf(2)*Gaussw(ng)*FLAIT
-         EcanL(ng) = Ecan1 + Ecan2
+         Ecan1      = Ecan1 + fslt*Eleaf(1)*Gaussw(ng)*FLAIT
+         Ecan2      = Ecan2 + fshd*Eleaf(2)*Gaussw(ng)*FLAIT
+         EcanL(ng)  = Ecan1 + Ecan2
 
-         Hcan1 = Hcan1 + fslt*Hleaf(1)*Gaussw(ng)*FLAIT
-         Hcan2 = Hcan2 + fshd*Hleaf(2)*Gaussw(ng)*FLAIT
+         Hcan1     = Hcan1 + fslt*Hleaf(1)*Gaussw(ng)*FLAIT
+         Hcan2     = Hcan2 + fshd*Hleaf(2)*Gaussw(ng)*FLAIT
          HcanL(ng) = Hcan1 + Hcan2
 
-         Gbwc1 = Gbwc1 + fslt*gbleaf(1)*Gaussw(ng)*FLAIT*stom_n
-         Gbwc2 = Gbwc2 + fshd*gbleaf(2)*Gaussw(ng)*FLAIT*stom_n
+         Gbwc1     = Gbwc1 + fslt*gbleaf(1)*Gaussw(ng)*FLAIT*stom_n
+         Gbwc2     = Gbwc2 + fshd*gbleaf(2)*Gaussw(ng)*FLAIT*stom_n
 
-         Gswc1 = Gswc1 + fslt*gsleaf(1)*Gaussw(ng)*FLAIT*stom_n
-         Gswc2 = Gswc2 + fshd*gsleaf(2)*Gaussw(ng)*FLAIT*stom_n
+         Gswc1     = Gswc1 + fslt*gsleaf(1)*Gaussw(ng)*FLAIT*stom_n
+         Gswc2     = Gswc2 + fshd*gsleaf(2)*Gaussw(ng)*FLAIT*stom_n
 
-         Tleaf1 = Tleaf1 + fslt*Tleaf(1)*Gaussw(ng)*FLAIT
-         Tleaf2 = Tleaf2 + fshd*Tleaf(2)*Gaussw(ng)*FLAIT
+         Tleaf1    = Tleaf1 + fslt*Tleaf(1)*Gaussw(ng)*FLAIT
+         Tleaf2    = Tleaf2 + fshd*Tleaf(2)*Gaussw(ng)*FLAIT
       end do  ! 5 layers
 
       FLAIT1 = (1.0 - exp(-extKb*FLAIT))/extkb
@@ -447,14 +412,14 @@ contains
           &         + (1.-fbeam)*(1.-reff(2, 2))*exp(-kpr(2, 2)*FLAIT)          !NIR
       Rsoilab1 = Rsoilab1*Radabv(1)
       Rsoilab2 = Rsoilab2*Radabv(2)
-      Tlk1 = Tleaf1 + 273.2
-      Tlk2 = Tleaf2 + 273.2
+      Tlk1     = Tleaf1 + 273.2
+      Tlk2     = Tleaf2 + 273.2
       ! temp1=-extkd*FLAIT
-      QLair = emair*sigma*(TairK**4)*exp(-extkd*FLAIT)
-      QLleaf = emleaf*sigma*(Tlk1**4)*exp(-extkb*FLAIT)           &
-          &      + emleaf*sigma*(Tlk2**4)*(1.0 - exp(-extkb*FLAIT))
-      QLleaf = QLleaf*(1.0 - exp(-extkd*FLAIT))
-      QLsoil = emsoil*sigma*(TairK**4)
+      QLair    = emair*sigma*(TairK**4)*exp(-extkd*FLAIT)
+      QLleaf   = emleaf*sigma*(Tlk1**4)*exp(-extkb*FLAIT)           &
+                 &      + emleaf*sigma*(Tlk2**4)*(1.0 - exp(-extkb*FLAIT))
+      QLleaf   = QLleaf*(1.0 - exp(-extkd*FLAIT))
+      QLsoil   = emsoil*sigma*(TairK**4)
       Rsoilab3 = (QLair + QLleaf)*(1.0 - rhoS(3)) - QLsoil
 
       ! Net radiation absorbed by soil
@@ -467,55 +432,48 @@ contains
       Rsoilabs = Rsoilab1 + Rsoilab2 + Rsoilab3
 
       ! thermodynamic parameters for air
-      TairK = Tair + 273.2
-      rhocp = cpair*Patm*AirMa/(Rconst*TairK)
-      H2OLv = H2oLv0 - 2.365e3*Tair
-      slope = (esat(Tair + 0.1) - esat(Tair))/0.1
-      psyc = Patm*cpair*AirMa/(H2OLv*H2OMw)
+      TairK  = Tair + 273.2
+      rhocp  = cpair*Patm*AirMa/(Rconst*TairK)
+      H2OLv  = H2oLv0 - 2.365e3*Tair
+      slope  = (esat(Tair + 0.1) - esat(Tair))/0.1
+      psyc   = Patm*cpair*AirMa/(H2OLv*H2OMw)
       Cmolar = Patm/(Rconst*TairK)
-      fw1 = AMIN1(AMAX1((FILDCP - wcl(1))/(FILDCP - WILTPT), 0.05), 1.0)
-      Rsoil = 30.*exp(0.2/fw1)
-      rLAI = exp(FLAIT)
+      fw1    = AMIN1(AMAX1((FILDCP - wcl(1))/(FILDCP - WILTPT), 0.05), 1.0)
+      Rsoil  = 30.*exp(0.2/fw1)
+      rLAI   = exp(FLAIT)
       ! latent heat flux into air from soil
       ! Eleaf(ileaf)=1.0*
       ! &     (slope*Y*Rnstar(ileaf)+rhocp*Dair/(rbH_L+raero))/    !2* Weng 0215
       ! &     (slope*Y+psyc*(rswv+rbw+raero)/(rbH_L+raero))
-      Esoil = (slope*(Rsoilabs - G) + rhocp*Dair/(raero + rLAI))/       &
-          &      (slope + psyc*(rsoil/(raero + rLAI) + 1.))
+      Esoil  = (slope*(Rsoilabs - G) + rhocp*VPD/(raero + rLAI))/       &
+               &      (slope + psyc*(rsoil/(raero + rLAI) + 1.))
       ! sensible heat flux into air from soil
       Hsoil = Rsoilabs - Esoil - G
       return
    end subroutine xlayers
 
    subroutine Radiso()
-      ! output
       ! Rnstar(type): type=1 for sunlit; =2 for shaded leaves (W/m2)
       ! 23 Dec 1994
       ! calculates isothermal net radiation for sunlit and shaded leaves under clear skies
-      ! implicit real (a-z)
-      real Rnstar(2)
-      real Qabs(3, 2)
+      real emsky, ep8z, tau8, emcloud, Bn0, Bnxi
       TairK = Tair + 273.2
-
       ! thermodynamic properties of air
-      rhocp = cpair*Patm*airMa/(Rconst*TairK)   !volumetric heat capacity (J/m3/K)
-
+      rhocp   = cpair*Patm*airMa/(Rconst*TairK)   !volumetric heat capacity (J/m3/K)
       ! apparent atmospheric emissivity for clear skies (Brutsaert, 1975)
-      emsky = 0.642*(eairP/Tairk)**(1./7)       !note eair in Pa
-
+      emsky   = 0.642*(eairP/Tairk)**(1./7)       !note eair in Pa
       ! apparent emissivity from clouds (Kimball et al 1982)
-      ep8z = 0.24 + 2.98e-12*eairP*eairP*exp(3000/TairK)
-      tau8 = amin1(1.0, 1.0 - ep8z*(1.4 - 0.4*ep8z))            !ensure tau8<1
+      ep8z    = 0.24 + 2.98e-12*eairP*eairP*exp(3000/TairK)
+      tau8    = amin1(1.0, 1.0 - ep8z*(1.4 - 0.4*ep8z))            !ensure tau8<1
       emcloud = 0.36*tau8*(1.-fbeam)*(1 - 10./TairK)**4      !10 from Tcloud = Tair-10
-
       ! apparent emissivity from sky plus clouds
       !      emair=emsky+emcloud
       ! 20/06/96
-      emair = emsky
+      emair   = emsky
       if (emair .gt. 1.0) emair = 1.0
       ! net isothermal outgoing longwave radiation per unit leaf area at canopy
       ! top & thin layer at flai (Note Rn* = Sn + Bn is used rather than Rn* = Sn - Bn in Leuning et al 1985)
-      Bn0 = sigma*(TairK**4.)
+      Bn0  = sigma*(TairK**4.)
       Bnxi = Bn0*extkd*(exp(-extkd*flai)*(emair - emleaf)       &
           &    + exp(-extkd*(flait - flai))*(emsoil - emleaf))
       ! isothermal net radiation per unit leaf area for thin layer of sunlit and
@@ -673,9 +631,9 @@ contains
    subroutine agsean_ngt()
       ! implicit real (a-z)
       integer kr1, ileaf
-      real Aleaf(2), Eleaf(2), Hleaf(2), Tleaf(2), co2ci(2)
-      real gbleaf(2), gsleaf(2)
-      real Qabs(3, 2), Rnstar(2)
+      ! real Aleaf(2), Eleaf(2), Hleaf(2), Tleaf(2), co2ci(2)
+      ! real gbleaf(2), gsleaf(2)
+      ! real Qabs(3, 2), Rnstar(2)
       ! thermodynamic parameters for air
       TairK = Tair + 273.2
       rhocp = cpair*Patm*AirMa/(Rconst*TairK)
@@ -753,12 +711,7 @@ contains
       return
    end subroutine agsean_ngt
 
-   subroutine photosyn(Sps, CO2Ca, CO2Csx, Dleafx, Tlkx, Qaparx, Gbcx, &
-       &         theta, a1, Ds0, fwsoil, varQc, weighR,                    &
-       &         g0, alpha,                                            &
-       &         Vcmx1, eJmx1, weighJ, conKc0, conKo0, Ekc, Eko, o2ci,       &
-       &         Rconst, Trefk, Eavm, Edvm, Eajm, Edjm, Entrpy, gam0, gam1, gam2,  &
-       &         Aleafx, Gscx, gddonset)
+   subroutine photosyn()
 
       ! calculate Vcmax, Jmax at leaf temp (Eq 9, Harley et al 1992)
       ! turned on by Weng, 2012-03-13
@@ -819,6 +772,29 @@ contains
       return
    end subroutine photosyn
 
+
+   subroutine ciandA()
+      ! calculate coefficients for quadratic equation for ci
+      b2 = g0 + X*(Gma - Rd)
+      b1 = (1.-co2cs*X)*(Gma - Rd) + g0*(Bta - co2cs) - X*(Gma*gammas + Bta*Rd)
+      b0 = -(1.-co2cs*X)*(Gma*gammas + Bta*Rd) - g0*Bta*co2cs
+
+      bx = b1*b1 - 4.*b2*b0
+      if (bx .gt. 0.0) then
+         ! calculate larger root of quadratic
+         ciquad = (-b1 + sqrt(bx))/(2.*b2)
+      end if
+
+      IF (ciquad .lt. 0 .or. bx .lt. 0.) THEN
+         Aquad = 0.0
+         ciquad = 0.7*co2Cs
+      ELSE
+         Aquad = Gma*(ciquad - gammas)/(ciquad + Bta)
+      END IF
+      return
+   end
+
+
 !  functions used in canopy -------------------------------
    real function sinbet()
       real rad, sinlat, coslat, sindec, cosdec, A, B
@@ -845,35 +821,14 @@ contains
       return
    end
 
-   subroutine ciandA(Gma, Bta, g0, X, Rd, co2Cs, gammas, ciquad, Aquad)
-      ! calculate coefficients for quadratic equation for ci
-      b2 = g0 + X*(Gma - Rd)
-      b1 = (1.-co2cs*X)*(Gma - Rd) + g0*(Bta - co2cs) - X*(Gma*gammas + Bta*Rd)
-      b0 = -(1.-co2cs*X)*(Gma*gammas + Bta*Rd) - g0*Bta*co2cs
-
-      bx = b1*b1 - 4.*b2*b0
-      if (bx .gt. 0.0) then
-         ! calculate larger root of quadratic
-         ciquad = (-b1 + sqrt(bx))/(2.*b2)
-      end if
-
-      IF (ciquad .lt. 0 .or. bx .lt. 0.) THEN
-         Aquad = 0.0
-         ciquad = 0.7*co2Cs
-      ELSE
-         Aquad = Gma*(ciquad - gammas)/(ciquad + Bta)
-      END IF
-      return
-   end
-
-   real function Vjmax(Tk, Trefk, Vjmax0, Eactiv, Edeact, Rconst, Entrop)
+   real function Vjmax()
       anum = Vjmax0*EXP((Eactiv/(Rconst*Trefk))*(1.-Trefk/Tk))
       aden = 1.+EXP((Entrop*Tk - Edeact)/(Rconst*Tk))
       Vjmax = anum/aden
       return
    end
 
-   real function funE(extkbd, FLAIT)
+   real function funE()
       funE = (1.0 - exp(-extkbd*FLAIT))/extkbd
       return
    end
@@ -881,7 +836,7 @@ contains
    ! ****************************************************************************
    ! Reed et al (1976, J appl Ecol 13:925) equation for temperature response
    ! used for Vcmax and Jmax
-   real function VJtemp(Tlf, TminVJ, TmaxVJ, ToptVJ, VJmax0)
+   real function VJtemp()
       if (Tlf .lt. TminVJ) Tlf = TminVJ   !constrain leaf temperatures between min and max
       if (Tlf .gt. TmaxVJ) Tlf = TmaxVJ
       pwr = (TmaxVJ - ToptVJ)/(ToptVj - TminVj)
@@ -891,7 +846,7 @@ contains
    end
 
    ! ****************************************************************************
-   real function fJQres(eJmx, alpha, Q, theta)
+   real function fJQres()
       AX = theta                                 !a term in J fn
       BX = alpha*Q + eJmx                          !b term in J fn
       CX = alpha*Q*eJmx                          !c term in J fn
@@ -904,7 +859,10 @@ contains
    end
 
    ! *************************************************************************
-   real function EnzK(Tk, Trefk, EnzK0, Rconst, Eactiv)
+   ! real function EnzK(Tk,Trefk,EnzK0,Rconst,Eactiv)
+   ! conKcT = EnzK(Tlkx,Trefk,conKc0,Rconst,Ekc)
+   ! conKoT = EnzK(Tlkx,Trefk,conKo0,Rconst,Eko)
+   real function EnzK()
       temp1 = (Eactiv/(Rconst*Trefk))*(1.-Trefk/Tk)
       ! if (temp1<50.)then
       EnzK = EnzK0*EXP((Eactiv/(Rconst*Trefk))*(1.-Trefk/Tk))
@@ -914,4 +872,4 @@ contains
       return
    end
 
-end module mod_teco
+end module mod_vegetation

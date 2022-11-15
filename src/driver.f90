@@ -8,7 +8,7 @@ module driver
     subroutine teco_simu()
         ! Jian: change the cycle according to the forcing data. year, doy, hour
         implicit none
-        integer iyear, first_year
+        integer first_year
 
         ! Jian: start the cycle of the forcing data
         first_year  = forcing%year(1)

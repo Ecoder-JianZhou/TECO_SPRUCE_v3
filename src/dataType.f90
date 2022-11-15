@@ -53,8 +53,14 @@ module mod_data
     integer iyear, iday, ihour
     real radsol, wind, tair, VPD, TairK, co2ca
     ! vegetation states and flux
-    real GPP, NSCmin, fnsc, nsc 
+    real GPP, NPP, NSCmin, fnsc, nsc, NSCmax 
+    real RmLeaf,RmStem,RmRoot                           ! maintanence respiration
+    real RgLeaf,RgStem,RgRoot                           ! growth respiration 
+    real Rgrowth,Rnitrogen,Rmain,Rauto !respirations
+    real StemSap,RootSap
     ! soil processes related variables
+    real Rsoilab1, Rsoilab2, QLair, QLleaf, QLsoil, Rsoilab3, Rsoilabs      ! calculate in xlayer and used in soil module, QLsoil and Rsoilab3, Rsoilabs seem be calculated both xlayers and soil T dynamic?
+    real rhocp, H2OLv, slope, psyc, Cmolar, fw1, Rsoil, rLAI, Hsoil ! seem both in xlayer and soil T dynamic
     real snow_depth, snow_depth_e, snow_dsim
 
     real QC(8) !  leaf,wood,root,fine lit.,coarse lit.,Micr,Slow,Pass
@@ -120,7 +126,7 @@ module mod_data
     real gpp_d,NPP_d,gpp_ra,NEP_d, NEE_d
     real evap_d,transp_d, Hcanop_d
     real ta, Ts
-    real LE_d, RaL, RaS, RaR, Rauto, Rh_d
+    real LE_d, RaL, RaS, RaR, Rh_d
     real N_up_d, N_fix_d, N_dep_d, N_leach_d, N_vol_d
     real PAR_d, VPD_d, RECO_d, RLEAV_d, RWOOD_d, RROOT_d
     real GL_d, GW_d, GR_d, LFALL_d, NUP_d, NVOL_d, NLEACH_d
@@ -509,8 +515,4 @@ module mod_data
         snow_in = temp_snow_depth(1:m-1)
         return
     end subroutine get_snowdepth
-
-    subroutine add()
-        do_spinup=do_spinup+1
-    end subroutine add
 end module mod_data
