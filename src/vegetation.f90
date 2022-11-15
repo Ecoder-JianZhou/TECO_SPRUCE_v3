@@ -1,37 +1,45 @@
-module mod_teco
-   ! each loop for simulation
+module mod_vegetation
+   !=================================================================================
+   !  main subroutines  :  canopy,  respiration, plantgrowth 
+   !             canopy => yrday,   xlayers,     Tsoil_simu
+   !            xlayers => Radiso,  goudriaan,   agsean_day,  agsean_ngt
+   !         agsean_day => photosyn
+   !           photosyn => ciandA
+   ! functions:
+   !           sinbet, esat, Vjmax, funE, VJtemp, fJQres, EnzK
+   !=================================================================================
    use mod_data
    implicit none
    integer doy, hour
-   real radsol, wind, tair, VPD, TairK, co2ca
+   
    real Gaussx(5), Gaussw(5), Gaussw_cum(5)                          ! Normalised Gaussian points and weights (Goudriaan & van Laar, 1993, P98)
    real coszen, fbeam, flait, Radabv(2), eairP
    real Acan1, Acan2, Ecan1, Ecan2
    real raero, extKb, extkd
-   real flai, Qabs(3, 2), emair, Rnstar(2), grdn
-   real reff(3, 2), kpr(3, 2), scatt(2)
+   real flai, Qabs(3,2), emair, Rnstar(2), grdn
+   real reff(3,2), kpr(3,2), scatt(2)
    real windUx, Vcmxx, eJmxx
    real Aleaf(2), Eleaf(2), Hleaf(2), Tleaf(2), co2ci(2)
    real gbleaf(2), gsleaf(2)
-
+   ! ---------------------------------------------------------------------------------
    data Gaussx/0.0469101, 0.2307534, 0.5, 0.7692465, 0.9530899/        ! 5-point
    data Gaussw/0.1184635, 0.2393144, 0.2844444, 0.2393144, 0.1184635/
    data Gaussw_cum/0.11846, 0.35777, 0.64222, 0.88153, 1.0/
-
+! ------------------------------------------------------------------------------------
 contains
-   subroutine canopy(in_doy, in_hour, in_radsol, in_wind, in_tair, in_VPD, in_co2ca)
+   subroutine canopy()
       implicit none
-      integer in_doy, in_hour
-      real in_radsol, in_wind, in_tair, in_VPD, in_co2ca
+      ! integer in_doy, in_hour
+      ! real in_radsol, in_wind, in_tair, in_VPD, in_co2ca
       real Ecanop
 
-      doy    = in_doy
-      hour   = in_hour
-      radsol = in_radsol
-      wind   = in_wind
-      tair   = in_tair
-      VPD    = in_VPD             ! Dair
-      co2ca  = in_co2ca           ! co2ca = 380.0*1.0E-6
+      ! doy    = in_doy
+      ! hour   = in_hour
+      ! radsol = in_radsol
+      ! wind   = in_wind
+      ! tair   = in_tair
+      ! VPD    = in_VPD             ! Dair
+      ! co2ca  = in_co2ca           ! co2ca = 380.0*1.0E-6
 
       call yrday()                                            ! calculate beam fraction in incoming solar radiation
       ! hours  = int(doy)*1.0+hour/24.0                       ! Jian: seem no used
@@ -49,52 +57,29 @@ contains
       radabv(1) = 0.5*radsol                    !(1) - solar radn
       radabv(2) = 0.5*radsol                    !(2) - NIR
       ! call multilayer model of Leuning - uses Gaussian integration but radiation scheme
-      ! is that of Goudriaan
-      call xlayers(Sps, Tair, Dair, radabv, fbeam, eairP,&                                   !
-          &        wind, co2ca, fwsoil, wcl, FLAIT, coszen, idoy, hours,&
-          &        tauL, rhoL, rhoS, xfang, extkd, extkU, wleaf,&
-          &        Rconst, sigma, emleaf, emsoil, theta, a1, Ds0,&
-          &        cpair, Patm, Trefk, H2OLv0, AirMa, H2OMw, Dheat,&
-          &        gsw0, alpha, stom_n, wsmax, wsmin,&
-          &        Vcmx0, eJmx0, conKc0, conKo0, Ekc, Eko, o2ci,&
-          &        Eavm, Edvm, Eajm, Edjm, Entrpy, gam0, gam1, gam2,&
-          &        extKb, Rsoilabs, Acan1, Acan2, Ecan1, Ecan2,&
-          &        RnStL, QcanL, RcanL, AcanL, EcanL, HcanL, GbwcL, GswcL, gddonset,&
-          &        testout, Rsoilab1, Rsoilab2, QLleaf, QLair, raero, do_soilphy,&  ! added from soil thermal ..int
-          &        G, Esoil, Hsoil) ! added from soil thermal ..int
-      ! *** ..int   added 'testout,Rsoilab1,Rsoilab2,QLleaf,QLair,raero,do_soilphy,G,Esoil,Hsoil'
-      if (do_soilphy) then
-         call Tsoil_simu(Rsoilab1, Rsoilab2, QLleaf, QLair, Tair, Dair,&
-             &         fbeam, FLAIT, sigma, emsoil, rhoS, Rconst,&
-             &         extkd, extkb, cpair, Patm, AirMa, H2OMw,&
-             &         H2OLv0, wcl, raero, wsmax, wsmin, wind, sftmp, Tsoill, testout, ht, ice,&
-             &         snow_depth, Tsnow, Twater, Tice, water_tw, ice_tw, diff_s, G, tsoil,&
-             &         diff_snow, albedo_snow, resht, thd_snow_depth, thksl, zwt, Esoil, Hsoil, liq_water, shcap_snow,&
-             &         condu_snow, condu_b, depth_ex, dcount_soil)
-      end if
-      !     write (84,184) Esoil
-      !184   format(f15.9,",")
-      !   ***
-      Acanop = Acan1 + Acan2
+      call xlayers() 
+      ! run Tsoil simulation
+      if (do_soilphy) call Tsoil_simu()                  ! *** ..int   added 'testout,Rsoilab1,Rsoilab2,QLleaf,QLair,raero,do_soilphy,G,Esoil,Hsoil'
+      ! summary the results of canopy
+      Acanop = Acan1 + Acan2                                
       Ecanop = Ecan1 + Ecan2
-      gpp = Acanop*3600.0*12.0                           ! every hour, g C m-2 h-1
+      gpp    = Acanop*3600.0*12.0                           ! every hour, g C m-2 h-1
       transp = AMAX1(Ecanop*3600.0/(1.0e6*(2.501 - 0.00236*Tair)), 0.) ! mm H2O /hour
-      evap = AMAX1(Esoil*3600.0/(1.0e6*(2.501 - 0.00236*Tair)), 0.)
+      evap   = AMAX1(Esoil *3600.0/(1.0e6*(2.501 - 0.00236*Tair)), 0.)
       return
    end subroutine canopy
 
-   ! autotrophic respiration
+   ! -------- autotrophic respiration -----------------------------------------------------------------
    subroutine respiration()
       ! calculate plant and soil respiration by the following equation:
       ! RD=BM*Rd*Q10**((T-25)/10) (Sun et al. 2005. Acta Ecologica Sinica)
       implicit none
       real :: conv = 3600.*12./1000000.                  ! converter from "umol C /m2/s" to "gC/m2/hour"
+      
       if (LAI .gt. LAIMIN) then
-         RmLeaf = Rl0*SNRauto*bmleaf*0.48*SLA*0.1     &
-                 &   *Q10**((Tair - 10.)/10.)*fnsc*conv
+         RmLeaf = Rl0*SNRauto*bmleaf*0.48*SLA*0.1*Q10**((Tair - 10.)/10.)*fnsc*conv
          RmStem = Rs0*SNRauto*StemSap*0.001*Q10**((Tair - 25.)/10.)*fnsc*conv
          RmRoot = Rr0*SNRauto*RootSap*0.001*Q10**((Tair - 25.)/10.)*fnsc*conv
-         ! print*,'greater than LAImin',RmLeaf,RmStem,RmRoot
       else
          RmLeaf = 0.3*GPP
          RmStem = 0.3*GPP
@@ -105,26 +90,15 @@ contains
          Rmleaf = Rmleaf/Rmain*0.0015*NSC
          Rmstem = Rmstem/Rmain*0.0015*NSC
          Rmroot = Rmstem/Rmain*0.0015*NSC
-         Rmain = Rmleaf + Rmstem + Rmroot
+         Rmain  = Rmleaf + Rmstem + Rmroot
       end if
-      ! print*,'end respiration',RmLeaf,RmStem,RmRoot
       return
-   end
+   end subroutine respiration
 
-   ! plant growth model
-   subroutine plantgrowth(Tair, omega, GLmax, GRmax, GSmax,&
-       &                  LAI, LAIMAX, LAIMIN, SLA, Tau_L,&
-       &                  bmleaf, bmroot, bmstem, bmplant,&
-       &                  Rootmax, Stemmax, SapS, SapR,&
-       &                  StemSap, RootSap, Storage, GDD5,&
-       &                  stor_use, onset, accumulation, gddonset,&
-       &                  Sps, NSC, fnsc, NSCmin, NSCmax,&
-       &                  NSN, CN, CN0, SNgrowth, N_deficit,&
-       &                  store, add, L_fall, ht,&
-       &                  NPP, alpha_L, alpha_W, alpha_R,&
-       &                  RgLeaf, RgStem, RgRoot, Rgrowth)
+   ! ------------- plant growth model --------------------------------------------------------------------
+   subroutine plantgrowth()
       implicit none
-      real NSC, NSCmin, NSCmax, fnsc, N_deficit
+      real NSCmin, NSCmax, fnsc
       real CN(8), CN0(8), NSN, nsCN
       real SnscnL, SnscnS, SnscnR
       real store, Storage, GDD5, stor_use, accumulation, gddonset
@@ -511,7 +485,7 @@ contains
       ! sensible heat flux into air from soil
       Hsoil = Rsoilabs - Esoil - G
       return
-   end
+   end subroutine xlayers
 
    subroutine Radiso()
       ! output
@@ -553,7 +527,7 @@ contains
           &    (exp(-extkd*flai) + exp(-extkd*(flait - flai)))       &
           &    /rhocp
       return
-   end
+   end subroutine Radiso
 
    subroutine goudriaan()
       ! for spheric leaf angle distribution only
@@ -595,7 +569,7 @@ contains
          Qabs(nw, 1) = Qabs(nw, 2) + extKb*Qb0*(1.-scatt(nw))                     !absorbed radiation - sunlit leaves
       end do
       return
-   end
+   end subroutine goudriaan
 
    subroutine agsean_day()
       integer kr1, ileaf
@@ -693,7 +667,7 @@ contains
          ! 10  continue
       end do
       return
-   end
+   end subroutine agsean_day
 
    ! ****************************************************************************
    subroutine agsean_ngt()
@@ -777,7 +751,7 @@ contains
 10       continue
       end do
       return
-   end
+   end subroutine agsean_ngt
 
    subroutine photosyn(Sps, CO2Ca, CO2Csx, Dleafx, Tlkx, Qaparx, Gbcx, &
        &         theta, a1, Ds0, fwsoil, varQc, weighR,                    &
@@ -843,7 +817,7 @@ contains
       CO2csx = co2ca - Aleafx/Gbcx
       Gscx = g0 + X*Aleafx  ! revised by Weng
       return
-   end
+   end subroutine photosyn
 
 !  functions used in canopy -------------------------------
    real function sinbet()
@@ -889,13 +863,6 @@ contains
       ELSE
          Aquad = Gma*(ciquad - gammas)/(ciquad + Bta)
       END IF
-      return
-   end
-
-   !****************************************************************************
-   real function esat(T)
-      ! returns saturation vapour pressure in Pa
-      esat = 610.78*exp(17.27*T/(T + 237.3))
       return
    end
 

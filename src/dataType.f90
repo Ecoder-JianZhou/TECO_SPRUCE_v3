@@ -2,12 +2,31 @@ module mod_data
     implicit none
     ! run settings 
     integer :: do_spinup = 0, do_mcmc = 0 ! 1 mean run spinup or MCMC
-    character(200) climatefile, parafile, commts
+    character(200) climatefile, parafile, commts, snowdepthfile   ! Jian: have the some row number with forcing
+    logical, parameter :: do_snow    = .True.
+    logical, parameter :: do_soilphy = .True.
+    real, parameter :: Ttreat   = 0.
+    real, parameter :: CO2treat = 0.
+    integer, parameter :: dtimes = 24   ! hourly simulation
 
     ! for driver --------------
     integer iforcing, nforcing                              ! for cycle
     integer, parameter :: nterms = 11, max_nlines=150000    ! year doy hour Tair Tsoil RH VPD Rain WS PAR CO2
-    real, dimension (:,:), allocatable :: forcing_data
+    real,DIMENSION(:), ALLOCATABLE :: snow_in
+    type ForcingType
+        INTEGER, dimension (:), allocatable :: year
+        INTEGER, dimension (:), allocatable :: doy
+        INTEGER, dimension (:), allocatable :: hour
+        real,    dimension (:), allocatable :: Tair
+        real,    dimension (:), allocatable :: Tsoil
+        real,    dimension (:), allocatable :: RH
+        real,    dimension (:), allocatable :: VPD
+        real,    dimension (:), allocatable :: Rain
+        real,    dimension (:), allocatable :: WS
+        real,    dimension (:), allocatable :: PAR
+        real,    dimension (:), allocatable :: CO2
+    end type ForcingType
+    type(ForcingType) :: forcing 
 
     ! contant parameters------------------------------------
     real,dimension(3):: tauL,rhoL,rhoS
@@ -30,8 +49,14 @@ module mod_data
     ! end of read parameters --------------------------------
 
     ! initialize parameters ------------------------------------------------------------
+    ! parameters for cycle
+    integer iyear, iday, ihour
+    real radsol, wind, tair, VPD, TairK, co2ca
     ! vegetation states and flux
-    real GPP
+    real GPP, NSCmin, fnsc, nsc 
+    ! soil processes related variables
+    real snow_depth, snow_depth_e, snow_dsim
+
     real QC(8) !  leaf,wood,root,fine lit.,coarse lit.,Micr,Slow,Pass
     real QN(8),CN0(8),CN(8),OutN(8),QNplant,QNminer
     real N_uptake,N_leach,N_vol,N_fixation,N_deposit,N_fert
@@ -44,7 +69,7 @@ module mod_data
     ! variables for canopy model
     real evap,transp,ET,G
     real Esoil,Hcrop,ecstot,Anet,DEPH2O,Acanop
-    real zwt_d,snow_depth_e,snow_dsim,melt,dcount,dcount_soil
+    real zwt_d,melt,dcount,dcount_soil
     real,dimension(10):: Tsoill,ice,liq_water
     real zwt,phi
     
@@ -68,7 +93,7 @@ module mod_data
     real depth_ex 
     real infilt_rate
     real fa,fsub,rho_snow,decay_m   
-    real fwsoil,topfws,omega,nsc 
+    real fwsoil,topfws,omega 
 
     real Sps    ! scaling factors for growth
 
@@ -132,6 +157,12 @@ module mod_data
 
     subroutine initialize()
         call consts()
+
+        ! plant related parameters
+        NSCmin  = 5. 
+
+
+
         fwsoil=1.0
         topfws=1.0
         omega=1.0
@@ -429,9 +460,55 @@ module mod_data
         ENDDO
         nforcing = COUNT - 1
         CLOSE(1)
-        allocate(forcing_data(nterms,nforcing) ) 
-        forcing_data = temp_forcing(:,:nforcing)
+        ! initialize the data type of forcing: Tair Tsoil RH VPD Rain WS PAR CO2
+        allocate(forcing%year(nforcing))
+        allocate(forcing%doy(nforcing))
+        allocate(forcing%hour(nforcing))
+        allocate(forcing%Tair(nforcing))
+        allocate(forcing%Tsoil(nforcing))
+        allocate(forcing%RH(nforcing))
+        allocate(forcing%VPD(nforcing))
+        allocate(forcing%Rain(nforcing))
+        allocate(forcing%WS(nforcing))
+        allocate(forcing%PAR(nforcing))
+        allocate(forcing%CO2(nforcing))
+        ! ----------------------------------------------------------------------
+        forcing%year  = int(temp_forcing(1,:))
+        forcing%doy   = int(temp_forcing(2,:))
+        forcing%hour  = int(temp_forcing(3,:))
+        forcing%Tair  = temp_forcing(4,:)
+        forcing%Tsoil = temp_forcing(5,:)
+        forcing%RH    = temp_forcing(6,:)
+        forcing%VPD   = temp_forcing(7,:)
+        forcing%Rain  = temp_forcing(8,:)
+        forcing%WS    = temp_forcing(9,:)
+        forcing%PAR   = temp_forcing(10,:)
+        forcing%CO2   = temp_forcing(11,:)
     end subroutine get_forcingdata
+
+    subroutine get_snowdepth()
+        implicit none
+        real temp_snow_depth(max_nlines)
+        integer istat1, m
+
+        ! integer m,n,istat1,lines,yr_length
+        real snow_depth_read
+        integer year,doy,hour
+
+        open(11,file = snowdepthfile, status ='old',ACTION='read', IOSTAT=istat1)
+        read(11,'(a160)') commts ! skip 2 lines of input met data file
+        m = 0  ! to record the lines in a file
+        do
+            m=m+1
+            read (11,*,IOSTAT=istat1)year,doy,hour,snow_depth_read
+            if(istat1<0)exit
+            temp_snow_depth(m)=snow_depth_read     
+        enddo
+        close(11)    ! close snow depth file
+        allocate(snow_in(m-1))
+        snow_in = temp_snow_depth(1:m-1)
+        return
+    end subroutine get_snowdepth
 
     subroutine add()
         do_spinup=do_spinup+1

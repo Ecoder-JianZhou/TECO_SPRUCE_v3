@@ -7,6 +7,7 @@ module mod_mcmc
     end subroutine run_mcmc
 
     subroutine read_obs()
-        dfsdf = 1
+        implicit none
+        ! write(*,*)dfsdf
     end subroutine read_obs
 end module mod_mcmc
