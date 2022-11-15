@@ -29,7 +29,9 @@ module mod_data
     real gddonset,Q10,Rl0,Rs0,Rr0
     ! end of read parameters --------------------------------
 
-    ! initialize parameters
+    ! initialize parameters ------------------------------------------------------------
+    ! vegetation states and flux
+    real GPP
     real QC(8) !  leaf,wood,root,fine lit.,coarse lit.,Micr,Slow,Pass
     real QN(8),CN0(8),CN(8),OutN(8),QNplant,QNminer
     real N_uptake,N_leach,N_vol,N_fixation,N_deposit,N_fert
