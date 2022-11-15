@@ -5,15 +5,15 @@ program TECO
     use driver
     ! to run TECO simulation, spin-up and data simulation
     implicit none
-    
-    ! read parameters values
-    call get_params()
-    ! initializations
-    call initialize()
+
+    parafile = "input/parameters.txt"
+    call get_params()   ! read parameters values
+    call initialize()   ! initializations
     if (do_spinup .eq. 1) call run_spinup() 
     if (do_mcmc .eq. 1) then
         call read_obs()
         call run_mcmc()
     endif
-    write(*,*)Dheat,tauL
+    write(*,*)Dheat,gddonset
+    call teco_simu()
 end program TECO
