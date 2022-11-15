@@ -68,6 +68,8 @@ module mod_data
     real fa,fsub,rho_snow,decay_m   
     real fwsoil,topfws,omega,nsc 
 
+    real Sps    ! scaling factors for growth
+
     ! -------------------------------------
     real GDD5
     integer onset !flag of phenological stage

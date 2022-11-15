@@ -3,22 +3,23 @@ module mod_teco
     use mod_data
     implicit none
     integer doy, hour
-    real radsol, wind, tair, VPD, TairK
+    real radsol, wind, tair, VPD, TairK, co2ca
     real coszen, fbeam, flait, Radabv(2), eairP
     real Acan1, Acan2, Ecan1, Ecan2
     real raero, extKb, extkd
     real flai, Qabs(3,2), emair, Rnstar(2), grdn
     real reff(3,2),kpr(3,2),scatt(2)
+    real windUx, Vcmxx, eJmxx
     real Gaussx(5),Gaussw(5),Gaussw_cum(5)                          ! Normalised Gaussian points and weights (Goudriaan & van Laar, 1993, P98)
     data Gaussx/0.0469101,0.2307534,0.5,0.7692465,0.9530899/        ! 5-point
     data Gaussw/0.1184635,0.2393144,0.2844444,0.2393144,0.1184635/
     data Gaussw_cum/0.11846,0.35777,0.64222,0.88153,1.0/
 
     contains
-    subroutine canopy(in_doy,in_hour,in_radsol, in_wind, in_tair, in_VPD)
+    subroutine canopy(in_doy,in_hour,in_radsol, in_wind, in_tair, in_VPD, in_co2ca)
         implicit none
         integer in_doy, in_hour
-        real in_radsol, in_wind, in_tair, in_VPD
+        real in_radsol, in_wind, in_tair, in_VPD, in_co2ca
         
         doy    = in_doy
         hour   = in_hour
@@ -26,6 +27,7 @@ module mod_teco
         wind   = in_wind
         tair   = in_tair
         VPD    = in_VPD             ! Dair
+        co2ca  = in_co2ca           ! co2ca = 380.0*1.0E-6
         
         call  yrday()              ! calculate beam fraction in incoming solar radiation
         ! hours  = int(doy)*1.0+hour/24.0               ! Jian: seem no used
@@ -148,6 +150,7 @@ module mod_teco
         integer nw, ng
         real rhoc(3,2)       !Goudriaan
         real rhoch, rhoc15, rhoc45, rhoc75
+        real scalex
         ! soil water conditions
         WILTPT=wsmin/100.
         FILDCP=wsmax/100.
@@ -209,19 +212,13 @@ module mod_teco
             call Radiso(flai,flait,Qabs,extkd,Tair,eairP,cpair,Patm,   &
                 &               fbeam,airMa,Rconst,sigma,emleaf,emsoil,        &
                 &               emair,Rnstar,grdn)
-            windUx=wind*exp(-extkU*flai)             !windspeed at depth xi
-            scalex=exp(-extkn*flai)                    !scale Vcmx0 & Jmax0
-            Vcmxx=Vcmx0*scalex
-            eJmxx=eJmx0*scalex
+            windUx = wind*exp(-extkU*flai)                ! windspeed at depth xi
+            scalex = exp(-extkn*flai)                     ! scale Vcmx0 & Jmax0
+            Vcmxx  = Vcmax0*scalex                         ! Vcmx0 ---> Vcmax0
+            eJmxx  = eJmx0*scalex
             if(radabv(1).ge.10.0) then                          !check solar Radiation > 10 W/m2
             ! leaf stomata-photosynthesis-transpiration model - daytime
-                call agsean_day(Sps,Qabs,Rnstar,grdn,windUx,Tair,Dair,      &
-                    &    co2ca,wleaf,raero,theta,a1,Ds0,fwsoil,idoy,hours,  &
-                    &    Rconst,cpair,Patm,Trefk,H2OLv0,AirMa,H2OMw,Dheat,  &
-                    &    gsw0,alpha,stom_n,                                 &
-                    &    Vcmxx,eJmxx,conKc0,conKo0,Ekc,Eko,o2ci,            &
-                    &    Eavm,Edvm,Eajm,Edjm,Entrpy,gam0,gam1,gam2,         &
-                    &    Aleaf,Eleaf,Hleaf,Tleaf,gbleaf,gsleaf,co2ci,gddonset)       
+                call agsean_day()       
             else
                 call agsean_ngt(Sps,Qabs,Rnstar,grdn,windUx,Tair,Dair,      &
                     &    co2ca,wleaf,raero,theta,a1,Ds0,fwsoil,idoy,hours,  &
@@ -229,7 +226,7 @@ module mod_teco
                     &    gsw0,alpha,stom_n,                                 &
                     &    Vcmxx,eJmxx,conKc0,conKo0,Ekc,Eko,o2ci,            &
                     &    Eavm,Edvm,Eajm,Edjm,Entrpy,gam0,gam1,gam2,         &
-                    &    Aleaf,Eleaf,Hleaf,Tleaf,gbleaf,gsleaf,co2ci)
+                    &    Aleaf,Eleaf,Hleaf,Tleaf,gbleaf,gsleaf)
             endif  
             fslt=exp(-extKb*flai)                        !fraction of sunlit leaves
             fshd=1.0-fslt                                !fraction of shaded leaves
@@ -405,6 +402,193 @@ module mod_teco
                 &      extKb*(1.-scatt(nw))*exp(-extKb*FLAI))
             Qabs(nw,1)=Qabs(nw,2)+extKb*Qb0*(1.-scatt(nw))                     !absorbed radiation - sunlit leaves 
         end do
+        return
+    end
+
+    subroutine agsean_day()
+        integer kr1,ileaf
+        real Aleaf(2),Eleaf(2),Hleaf(2),Tleaf(2),co2ci(2)
+        real gbleaf(2), gsleaf(2)
+        real Qabs(3,2),Rnstar(2)
+        ! thermodynamic parameters for air
+        TairK=Tair+273.2
+        rhocp=cpair*Patm*AirMa/(Rconst*TairK)
+        H2OLv=H2oLv0-2.365e3*Tair
+        slope=(esat(Tair+0.1)-esat(Tair))/0.1
+        psyc=Patm*cpair*AirMa/(H2OLv*H2OMw)
+        Cmolar=Patm/(Rconst*TairK)
+        weighJ=1.0
+        ! boundary layer conductance for heat - single sided, forced convection
+        ! (Monteith 1973, P106 & notes dated 23/12/94)
+        if(windUx/wleaf>=0.0)then
+            gbHu=0.003*sqrt(windUx/wleaf)    !m/s
+        else
+            gbHu=0.003 !*sqrt(-windUx/wleaf)
+        endif         ! Weng 10/31/2008
+        ! raero=0.0                        !aerodynamic resistance s/m
+        do ileaf=1,2              ! loop over sunlit and shaded leaves
+            ! first estimate of leaf temperature - assume air temp
+            Tleaf(ileaf)=Tair
+            Tlk=Tleaf(ileaf)+273.2    !Tleaf to deg K
+            ! first estimate of deficit at leaf surface - assume Da
+            Dleaf=Dair                !Pa
+            ! first estimate for co2cs
+            co2cs=co2ca               !mol/mol
+            Qapar = (4.6e-6)*Qabs(1,ileaf)
+            ! ********************************************************************
+            kr1=0                     !iteration counter for LE
+            ! return point for evaporation iteration
+            do               !iteration for leaf temperature
+                ! single-sided boundary layer conductance - free convection (see notes 23/12/94)
+                Gras=1.595e8*ABS(Tleaf(ileaf)-Tair)*(wleaf**3.)     !Grashof
+                gbHf=0.5*Dheat*(Gras**0.25)/wleaf
+                gbH=gbHu+gbHf                         !m/s
+                rbH=1./gbH                            !b/l resistance to heat transfer
+                rbw=0.93*rbH                          !b/l resistance to water vapour
+                ! Y factor for leaf: stom_n = 1.0 for hypostomatous leaf;  stom_n = 2.0 for amphistomatous leaf
+                rbH_L=rbH*stom_n/2.                   !final b/l resistance for heat  
+                rrdn=1./grdn
+                Y=1./(1.+ (rbH_L+raero)/rrdn)
+                ! boundary layer conductance for CO2 - single side only (mol/m2/s)
+                gbc=Cmolar*gbH/1.32            !mol/m2/s
+                gsc0=gsw0/1.57                 !convert conductance for H2O to that for CO2
+                varQc=0.0
+                weighR=1.0
+                call photosyn(Sps,CO2Ca,CO2Cs,Dleaf,Tlk,Qapar,Gbc,   &   !Qaparx<-Qapar,Gbcx<-Gsc0
+                    &         theta,a1,Ds0,fwsoil,varQc,weighR,                &
+                    &         gsc0,alpha,Vcmxx,eJmxx,weighJ,                   &
+                    &         conKc0,conKo0,Ekc,Eko,o2ci,Rconst,Trefk,         &
+                    &         Eavm,Edvm,Eajm,Edjm,Entrpy,gam0,gam1,gam2,       &
+                    &         Aleafx,Gscx,gddonset)  !outputs
+                ! choose smaller of Ac, Aq
+                Aleaf(ileaf) = Aleafx      !0.7 Weng 3/22/2006          !mol CO2/m2/s
+                ! calculate new values for gsc, cs (Lohammer model)
+                co2cs = co2ca-Aleaf(ileaf)/gbc
+                co2Ci(ileaf) = co2cs-Aleaf(ileaf)/gscx
+                ! scale variables
+                ! gsw=gscx*1.56      !gsw in mol/m2/s, oreginal:gsw=gsc0*1.56,Weng20060215
+                gsw=gscx*1.56       !gsw in mol/m2/s, oreginal:gsw=gscx*1.56,Weng20090226
+                gswv=gsw/Cmolar                           !gsw in m/s
+                rswv=1./gswv
+                ! calculate evap'n using combination equation with current estimate of gsw
+                Eleaf(ileaf)=1.0*(slope*Y*Rnstar(ileaf)+rhocp*Dair/(rbH_L+raero))/    &   !2* Weng 0215
+                    &     (slope*Y+psyc*(rswv+rbw+raero)/(rbH_L+raero))        
+                ! calculate sensible heat flux
+                Hleaf(ileaf)=Y*(Rnstar(ileaf)-Eleaf(ileaf))
+                ! calculate new leaf temperature (K)
+                Tlk1=273.2+Tair+Hleaf(ileaf)*(rbH/2.+raero)/rhocp
+                ! calculate Dleaf use LE=(rhocp/psyc)*gsw*Ds
+                Dleaf=psyc*Eleaf(ileaf)/(rhocp*gswv)
+                gbleaf(ileaf)=gbc*1.32*1.075
+                gsleaf(ileaf)=gsw
+                ! compare current and previous leaf temperatures
+                if(abs(Tlk1-Tlk).le.0.1) exit ! original is 0.05 C Weng 10/31/2008
+                ! update leaf temperature  ! leaf temperature calculation has many problems! Weng 10/31/2008
+                Tlk=Tlk1
+                Tleaf(ileaf)=Tlk1-273.2
+                kr1=kr1+1
+                if(kr1 > 500)then
+                    Tlk=TairK
+                    exit
+                endif
+                if(Tlk < 200.)then
+                    Tlk=TairK
+                    exit 
+                endif                     ! Weng 10/31/2008
+                ! goto 100                          !solution not found yet
+            enddo
+    ! 10  continue
+        enddo
+        return
+    end
+    
+    ! ****************************************************************************
+    subroutine agsean_ngt(Sps,Qabs,Rnstar,grdn,windUx,Tair,Dair,co2ca,    &
+        &               wleaf,raero,theta,a1,Ds0,fwsoil,idoy,hours,            &
+        &               Rconst,cpair,Patm,Trefk,H2OLv0,AirMa,H2OMw,Dheat,      &
+        &               gsw0,alpha,stom_n,                                     &
+        &               Vcmxx,eJmxx,conKc0,conKo0,Ekc,Eko,o2ci,                &
+        &               Eavm,Edvm,Eajm,Edjm,Entrpy,gam0,gam1,gam2,             &
+        &               Aleaf,Eleaf,Hleaf,Tleaf,gbleaf,gsleaf,co2ci)
+        ! implicit real (a-z)
+        integer kr1,ileaf
+        real Aleaf(2),Eleaf(2),Hleaf(2),Tleaf(2),co2ci(2)
+        real gbleaf(2), gsleaf(2)
+        real Qabs(3,2),Rnstar(2)
+        ! thermodynamic parameters for air
+        TairK=Tair+273.2
+        rhocp=cpair*Patm*AirMa/(Rconst*TairK)
+        H2OLv=H2oLv0-2.365e3*Tair
+        slope=(esat(Tair+0.1)-esat(Tair))/0.1
+        psyc=Patm*cpair*AirMa/(H2OLv*H2OMw)
+        Cmolar=Patm/(Rconst*TairK)
+        weighJ=1.0
+        ! boundary layer conductance for heat - single sided, forced convection
+        ! (Monteith 1973, P106 & notes dated 23/12/94)
+        gbHu=0.003*sqrt(windUx/wleaf)    !m/s
+        ! raero=0.0                        !aerodynamic resistance s/m
+        do ileaf=1,2                  ! loop over sunlit and shaded leaves
+            ! first estimate of leaf temperature - assume air temp
+            Tleaf(ileaf)=Tair
+            Tlk=Tleaf(ileaf)+273.2    !Tleaf to deg K
+            ! first estimate of deficit at leaf surface - assume Da
+            Dleaf=Dair                !Pa
+            ! first estimate for co2cs
+            co2cs=co2ca               !mol/mol
+            Qapar = (4.6e-6)*Qabs(1,ileaf)
+            ! ********************************************************************
+            kr1=0                     !iteration counter for LE
+            do
+    !100        continue !    return point for evaporation iteration
+                ! single-sided boundary layer conductance - free convection (see notes 23/12/94)
+                Gras=1.595e8*abs(Tleaf(ileaf)-Tair)*(wleaf**3)     !Grashof
+                gbHf=0.5*Dheat*(Gras**0.25)/wleaf
+                gbH=gbHu+gbHf                         !m/s
+                rbH=1./gbH                            !b/l resistance to heat transfer
+                rbw=0.93*rbH                          !b/l resistance to water vapour
+                ! Y factor for leaf: stom_n = 1.0 for hypostomatous leaf;  stom_n = 2.0 for amphistomatous leaf
+                rbH_L=rbH*stom_n/2.                   !final b/l resistance for heat  
+                rrdn=1./grdn
+                Y=1./(1.+ (rbH_L+raero)/rrdn)
+                ! boundary layer conductance for CO2 - single side only (mol/m2/s)
+                gbc=Cmolar*gbH/1.32            !mol/m2/s
+                gsc0=gsw0/1.57                        !convert conductance for H2O to that for CO2
+                varQc=0.0                  
+                weighR=1.0
+                ! respiration      
+                Aleafx=-0.0089*Vcmxx*exp(0.069*(Tlk-293.2))
+                gsc=gsc0
+                ! choose smaller of Ac, Aq
+                Aleaf(ileaf) = Aleafx                     !mol CO2/m2/s
+                ! calculate new values for gsc, cs (Lohammer model)
+                co2cs = co2ca-Aleaf(ileaf)/gbc
+                co2Ci(ileaf) = co2cs-Aleaf(ileaf)/gsc
+                ! scale variables
+                gsw=gsc*1.56                              !gsw in mol/m2/s
+                gswv=gsw/Cmolar                           !gsw in m/s
+                rswv=1./gswv
+                ! calculate evap'n using combination equation with current estimate of gsw
+                Eleaf(ileaf)= (slope*Y*Rnstar(ileaf)+rhocp*Dair/(rbH_L+raero))/   &
+                    &      (slope*Y+psyc*(rswv+rbw+raero)/(rbH_L+raero))
+                ! calculate sensible heat flux
+                Hleaf(ileaf)=Y*(Rnstar(ileaf)-Eleaf(ileaf))
+                ! calculate new leaf temperature (K)
+                Tlk1=273.2+Tair+Hleaf(ileaf)*(rbH/2.+raero)/rhocp
+                ! calculate Dleaf use LE=(rhocp/psyc)*gsw*Ds
+                Dleaf=psyc*Eleaf(ileaf)/(rhocp*gswv)
+                gbleaf(ileaf)=gbc*1.32*1.075
+                gsleaf(ileaf)=gsw
+    
+                ! compare current and previous leaf temperatures
+                if(abs(Tlk1-Tlk).le.0.1)exit
+                if(kr1.gt.500)exit
+                ! update leaf temperature
+                Tlk=Tlk1 
+                Tleaf(ileaf)=Tlk1-273.2
+                kr1=kr1+1
+            enddo                          !solution not found yet
+    10    continue
+        enddo
         return
     end
 
