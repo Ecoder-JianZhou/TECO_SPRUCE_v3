@@ -1,4 +1,5 @@
 module mod_mcmc
+    implicit none
 
     contains
     subroutine run_mcmc()
@@ -6,5 +7,6 @@ module mod_mcmc
     end subroutine run_mcmc
 
     subroutine read_obs()
+        dfsdf = 1
     end subroutine read_obs
 end module mod_mcmc
