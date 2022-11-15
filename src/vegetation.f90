@@ -25,13 +25,13 @@ contains
       real in_radsol, in_wind, in_tair, in_VPD, in_co2ca
       real Ecanop
 
-      doy = in_doy
-      hour = in_hour
+      doy    = in_doy
+      hour   = in_hour
       radsol = in_radsol
-      wind = in_wind
-      tair = in_tair
-      VPD = in_VPD             ! Dair
-      co2ca = in_co2ca           ! co2ca = 380.0*1.0E-6
+      wind   = in_wind
+      tair   = in_tair
+      VPD    = in_VPD             ! Dair
+      co2ca  = in_co2ca           ! co2ca = 380.0*1.0E-6
 
       call yrday()                                            ! calculate beam fraction in incoming solar radiation
       ! hours  = int(doy)*1.0+hour/24.0                       ! Jian: seem no used
