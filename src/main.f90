@@ -7,7 +7,7 @@ program TECO
     implicit none
 
     parafile      = "input/parameters.txt"
-    climatefile   = "input/SPRUCE_forcing2011_2014.txt"
+    climatefile   = "input/forcing.txt"
     snowdepthfile = "input/SPRUCE_Snow_Depth_2011-2014.txt"
     call get_params()                           ! read parameters values
     call get_forcingdata()                      ! read forcing data

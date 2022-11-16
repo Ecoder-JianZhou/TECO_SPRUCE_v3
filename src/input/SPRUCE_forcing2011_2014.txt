@@ -1,4 +1,4 @@
-year	doy	hour	Tair	Tsoil	RH	VPD	Rain	WS	PAR
+year	doy	hour	Tair	Tsoil	RH	VPD	Rain	WS	PAR 
 2011	1	0	-12.85	0.7325	90.3	94.9	0	1.5325	0
 2011	1	1	-12.8	0.7275	91.8	94.85	0	1.5445	0
 2011	1	2	-12.75	0.7225	92.65	94.75	0	1.598	0

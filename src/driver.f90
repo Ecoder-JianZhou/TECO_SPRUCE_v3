@@ -3,6 +3,7 @@ module driver
     use mod_data
     use mod_vegetation
     use mod_soil
+    use mod_transfer
     implicit none
     
 
@@ -19,6 +20,7 @@ module driver
         real RECOh
         real ETh,Th,Eh,INTh,ROh,DRAINh,LEh,SHh
         real VPDh, LWH
+        real esat1 
 
         ! Jian: start the cycle of the forcing data
         first_year  = forcing%year(1)
@@ -50,7 +52,7 @@ module driver
             Tair  = forcing%Tair(iforcing)                  ! Tair
             Tsoil = forcing%Tsoil(iforcing)                 ! SLT
             co2ca = forcing%CO2(iforcing)*1.0E-6            ! CO2 concentration,ppm-->1.0E-6
-            if (co2ca .eq. -9999) co2ca = 380.0*1.0E-6      
+            if (co2ca .lt. 0) co2ca = 380.0*1.0E-6      
             ! Jian: whether it has the treatment
             Tair  = Tair  + Ttreat
             Tsoil = Tsoil + Ttreat
@@ -64,8 +66,9 @@ module driver
             radsol = forcing%PAR(iforcing)              ! unit ? PAR actually  Jian: or incoming shortwave/longwave radiation?
             ! Ajust some unreasonable values            Jian: check the new data?
             RH     = AMAX1(0.01,AMIN1(99.99,RH))
-            eairP  = esat1(Tair)*RH/100.                 ! Added for SPRUCE, due to lack of VPD data. Jian: ? SPRUCE has the data?
-            Dair   = esat1(Tair)-eairP
+            esat1  = 610.78*exp(17.27*Tair/(Tair + 237.3))
+            eairP  = esat1*RH/100.                 ! Added for SPRUCE, due to lack of VPD data. Jian: ? SPRUCE has the data?
+            Dair   = esat1-eairP
             radsol = AMAX1(radsol,0.01)
 
             ! ----- int added for soil thermal/ soil water
@@ -101,7 +104,7 @@ module driver
             ! update vcmx0 and eJmx0 according to C/N of leaves
             Vcmx0 = Vcmax0*SNvcmax*1.0e-6
             ! eJmx0 = 2.7*Vcmx0  ! original
-            eJmx0 = 1.67*Vcmx0 ! Weng 02/21/2011 Medlyn et al. 2002      
+            eJmx0 = 1.67*Vcmx0 ! Weng 02/21/2011 Medlyn et al. 2002     
             call canopy()
             call soilwater()                      !outputs
 
@@ -264,210 +267,184 @@ module driver
             GL_yr=GL_yr+NPP*alpha_L
             GW_yr=GW_yr+NPP*alpha_W
             GR_yr=GR_yr+NPP*alpha_R
-            ! numbering         
-            n=n+1
-            ! *** .int
-            ! added for soil thermal      unknown function check later   Shuang
-            if((yr+first_year-1).eq.obs_soilwater(1,k1) .and.    &
-                &     days .eq. obs_soilwater(2,k1) .and.      &
-                &     (i-1).eq. obs_soilwater(3,k1))then
-                Simu_soilwater(1:10,k1)=wcl(1:10)
-                Simu_soiltemp(1:11,k1)=testout
-                Simu_watertable(1,k1)=zwt
-                k1=k1+1
-            endif
-            ! write(*,*)yr,days,i,gpp,npp
+
+            ! ! added for soil thermal      unknown function check later   Shuang
+            ! if((yr+first_year-1).eq.obs_soilwater(1,k1) .and.    &
+            !     &     days .eq. obs_soilwater(2,k1) .and.      &
+            !     &     (i-1).eq. obs_soilwater(3,k1))then
+            !     Simu_soilwater(1:10,k1)=wcl(1:10)
+            !     Simu_soiltemp(1:11,k1)=testout
+            !     Simu_watertable(1,k1)=zwt
+            !     k1=k1+1
+            ! endif
             if(isnan(gpp))then
-                write(*,*)'gpp is nan'
-                return
+            write(*,*)iyear,iday,ihour,gpp,npp,radsol, wind, tair, Dair, TairK, co2ca, par, rain, RH, Tsoil
+            return
             endif
+            ! if(isnan(gpp))then
+            !     write(*,*)'gpp is nan'
+            !     return
+            ! endif
 
-            enddo              ! end of dtimes
+            ! enddo              ! end of dtimes
             if((GDD5.gt.gddonset) .and. phenoset.eq.0) then
-                pheno=days
-                phenoset=1
+                pheno    = iday    ! pheno=days
+                phenoset = 1
             endif
-
-            ! +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-              
-            ! output results of canopy and soil models, daily
-            ! daily output
-            INT_d=-9999
-            DRAIN_d=-9999
-            SH_d=-9999
-            CSOIL_d=QC(6)+QC(7)+QC(8)
-            LMA_d=QC(1)/0.48
-            NSOIL_d=QN(6)+QN(7)+QN(8)+QNminer
-
-            Rgrowth_d=-9999
-            abvLitter=QC(4)  !-9999
-            blLitter=QC(5) !-9999
-            ! write(*,*)yr,days,LAI,gpp_d,npp_d
 
             ! if(yr.gt.yrs_eq)then  
-            daily=daily+1
+            ! daily=daily+1
   
-            Simu_dailyflux(1,daily)=GPP_d ! Leaf
-            Simu_dailyflux(2,daily)=NEE_d	! Wood
-            Simu_dailyflux(3,daily)=Reco_d	! Coarse roots
-            Simu_dailyflux(4,daily)=QC(1)!*1.5
-            Simu_dailyflux(5,daily)=GL_yr!*1.5
-            Simu_dailyflux(6,daily)=QC(2)!*0.48
-            Simu_dailyflux(7,daily)=GW_yr!*0.48
-            Simu_dailyflux(8,daily)=QC(3)
-            Simu_dailyflux(9,daily)=GR_yr
-            Simu_dailyflux(10,daily)=(QC(6)+QC(7)+QC(8))!*13.8   ! Soil
-            Simu_dailyflux(11,daily)=pheno   ! Soil
-            Simu_dailyflux(12,daily)=LAI !QC(1)/(QC(1)+QC(4)) 
+            ! Simu_dailyflux(1,iday)=GPP_d ! Leaf
+            ! Simu_dailyflux(2,iday)=NEE_d	! Wood
+            ! Simu_dailyflux(3,iday)=Reco_d	! Coarse roots
+            ! Simu_dailyflux(4,iday)=QC(1)!*1.5
+            ! Simu_dailyflux(5,iday)=GL_yr!*1.5
+            ! Simu_dailyflux(6,iday)=QC(2)!*0.48
+            ! Simu_dailyflux(7,iday)=GW_yr!*0.48
+            ! Simu_dailyflux(8,iday)=QC(3)
+            ! Simu_dailyflux(9,iday)=GR_yr
+            ! Simu_dailyflux(10,iday)=(QC(6)+QC(7)+QC(8))!*13.8   ! Soil
+            ! Simu_dailyflux(11,iday)=pheno   ! Soil
+            ! Simu_dailyflux(12,iday)=LAI !QC(1)/(QC(1)+QC(4)) 
 
-            Simu_dailyflux14(1,daily)=GPP_d 
-            Simu_dailyflux14(2,daily)=NEE_d                   
-            Simu_dailyflux14(3,daily)=Reco_d	!Rh             
-            Simu_dailyflux14(4,daily)=NPP_d!*1.5
-            Simu_dailyflux14(5,daily)=Ra_d!*1.5
-            Simu_dailyflux14(6,daily)=QC(1)
-            Simu_dailyflux14(7,daily)=QC(2)
-            Simu_dailyflux14(8,daily)=QC(3)
-            Simu_dailyflux14(9,daily)=QC(4)
-            Simu_dailyflux14(10,daily)=QC(5)
-            Simu_dailyflux14(11,daily)=QC(6)
-            Simu_dailyflux14(12,daily)=QC(7)
-            Simu_dailyflux14(13,daily)=QC(8)!*0.48
-            Simu_dailyflux14(14,daily)=Rh_d
+            ! Simu_dailyflux14(1,iday)=GPP_d 
+            ! Simu_dailyflux14(2,iday)=NEE_d                   
+            ! Simu_dailyflux14(3,iday)=Reco_d	!Rh             
+            ! Simu_dailyflux14(4,iday)=NPP_d!*1.5
+            ! Simu_dailyflux14(5,iday)=Ra_d!*1.5
+            ! Simu_dailyflux14(6,iday)=QC(1)
+            ! Simu_dailyflux14(7,iday)=QC(2)
+            ! Simu_dailyflux14(8,iday)=QC(3)
+            ! Simu_dailyflux14(9,iday)=QC(4)
+            ! Simu_dailyflux14(10,iday)=QC(5)
+            ! Simu_dailyflux14(11,iday)=QC(6)
+            ! Simu_dailyflux14(12,iday)=QC(7)
+            ! Simu_dailyflux14(13,iday)=QC(8)!*0.48
+            ! Simu_dailyflux14(14,iday)=Rh_d
                 
-            ! Simu_dailywater(1,daily)= wsc(1)        ! not aggregated to daily, value should represents 23:00
-            ! Simu_dailywater(2,daily)= wsc(2)
-            ! Simu_dailywater(3,daily)= wsc(3)
-            ! Simu_dailywater(4,daily)= wsc(4)
-            ! Simu_dailywater(5,daily)= wsc(5)
-            ! Simu_dailywater(6,daily)= wsc(6)        ! not aggregated to daily, value should represents 23:00
-            ! Simu_dailywater(7,daily)= wsc(7)
-            ! Simu_dailywater(8,daily)= wsc(8)
-            ! Simu_dailywater(9,daily)= wsc(9)
-            ! Simu_dailywater(10,daily)= wsc(10)
-            !            
-            ! if (do_soilphy)
-            ! write (*,*) 'simuwcl',wcl(1)           !dbice
-            Simu_dailywater(1,daily)= wcl(1)        ! not aggregated to daily, value should represents 23:00
-            Simu_dailywater(2,daily)= wcl(2)
-            Simu_dailywater(3,daily)= wcl(3)
-            Simu_dailywater(4,daily)= wcl(4)
-            Simu_dailywater(5,daily)= wcl(5)
-            Simu_dailywater(6,daily)= wcl(6)        ! not aggregated to daily, value should represents 23:00
-            Simu_dailywater(7,daily)= wcl(7)
-            Simu_dailywater(8,daily)= wcl(8)
-            Simu_dailywater(9,daily)= wcl(9)
-            Simu_dailywater(10,daily)= wcl(10)
-            Simu_dailywater(11,daily)= liq_water(1)        ! not aggregated to daily, value should represents 23:00
-            Simu_dailywater(12,daily)= liq_water(2)
-            Simu_dailywater(13,daily)= liq_water(3)
-            Simu_dailywater(14,daily)= liq_water(4)
-            Simu_dailywater(15,daily)= liq_water(5)
-            Simu_dailywater(16,daily)= liq_water(6)        ! not aggregated to daily, value should represents 23:00
-            Simu_dailywater(17,daily)= liq_water(7)
-            Simu_dailywater(18,daily)= liq_water(8)
-            Simu_dailywater(19,daily)= liq_water(9)
-            Simu_dailywater(20,daily)= liq_water(10)
-            Simu_dailywater(21,daily)= ice(1)        ! not aggregated to daily, value should represents 23:00
-            Simu_dailywater(22,daily)= ice(2)
-            Simu_dailywater(23,daily)= ice(3)
-            Simu_dailywater(24,daily)= ice(4)
-            Simu_dailywater(25,daily)= ice(5)
-            Simu_dailywater(26,daily)= ice(6)        ! not aggregated to daily, value should represents 23:00
-            Simu_dailywater(27,daily)= ice(7)
-            Simu_dailywater(28,daily)= ice(8)
-            Simu_dailywater(29,daily)= ice(9)
-            Simu_dailywater(30,daily)= ice(10)            
-            Simu_dailywater(31,daily)= zwt
-            ! *** ..int methane           
-            Simu_dailyCH4(1,daily)=simuCH4_d
-            Simu_dailyCH4(2,daily)=Pro_sum_d
-            Simu_dailyCH4(3,daily)=Oxi_sum_d
-            Simu_dailyCH4(4,daily)=Fdifu1_d
-            Simu_dailyCH4(5,daily)=Ebu_sum_d
-            Simu_dailyCH4(6,daily)=Pla_sum_d
-            Simu_dailyCH4(7:16,daily)=CH4V_d(1:10)/24
+            ! Simu_dailywater(1,daily)= wcl(1)        ! not aggregated to daily, value should represents 23:00
+            ! Simu_dailywater(2,daily)= wcl(2)
+            ! Simu_dailywater(3,daily)= wcl(3)
+            ! Simu_dailywater(4,daily)= wcl(4)
+            ! Simu_dailywater(5,daily)= wcl(5)
+            ! Simu_dailywater(6,daily)= wcl(6)        ! not aggregated to daily, value should represents 23:00
+            ! Simu_dailywater(7,daily)= wcl(7)
+            ! Simu_dailywater(8,daily)= wcl(8)
+            ! Simu_dailywater(9,daily)= wcl(9)
+            ! Simu_dailywater(10,daily)= wcl(10)
+            ! Simu_dailywater(11,daily)= liq_water(1)        ! not aggregated to daily, value should represents 23:00
+            ! Simu_dailywater(12,daily)= liq_water(2)
+            ! Simu_dailywater(13,daily)= liq_water(3)
+            ! Simu_dailywater(14,daily)= liq_water(4)
+            ! Simu_dailywater(15,daily)= liq_water(5)
+            ! Simu_dailywater(16,daily)= liq_water(6)        ! not aggregated to daily, value should represents 23:00
+            ! Simu_dailywater(17,daily)= liq_water(7)
+            ! Simu_dailywater(18,daily)= liq_water(8)
+            ! Simu_dailywater(19,daily)= liq_water(9)
+            ! Simu_dailywater(20,daily)= liq_water(10)
+            ! Simu_dailywater(21,daily)= ice(1)        ! not aggregated to daily, value should represents 23:00
+            ! Simu_dailywater(22,daily)= ice(2)
+            ! Simu_dailywater(23,daily)= ice(3)
+            ! Simu_dailywater(24,daily)= ice(4)
+            ! Simu_dailywater(25,daily)= ice(5)
+            ! Simu_dailywater(26,daily)= ice(6)        ! not aggregated to daily, value should represents 23:00
+            ! Simu_dailywater(27,daily)= ice(7)
+            ! Simu_dailywater(28,daily)= ice(8)
+            ! Simu_dailywater(29,daily)= ice(9)
+            ! Simu_dailywater(30,daily)= ice(10)            
+            ! Simu_dailywater(31,daily)= zwt
+            ! ! *** ..int methane           
+            ! Simu_dailyCH4(1,daily)=simuCH4_d
+            ! Simu_dailyCH4(2,daily)=Pro_sum_d
+            ! Simu_dailyCH4(3,daily)=Oxi_sum_d
+            ! Simu_dailyCH4(4,daily)=Fdifu1_d
+            ! Simu_dailyCH4(5,daily)=Ebu_sum_d
+            ! Simu_dailyCH4(6,daily)=Pla_sum_d
+            ! Simu_dailyCH4(7:16,daily)=CH4V_d(1:10)/24
             
             !  *** .int soil thermal            
-            Simu_dailysoilt(1:11,daily)=soilt_d_simu(1:11)/24.
-            ! Simu_dailyst(1:11,daily) = testout(1:11)
-            Simu_dailyice(1:10,daily)=ice_d_simu(1:10)/24.
+            ! Simu_dailysoilt(1:11,daily)=soilt_d_simu(1:11)/24.
+            ! ! Simu_dailyst(1:11,daily) = testout(1:11)
+            ! Simu_dailyice(1:10,daily)=ice_d_simu(1:10)/24.
                                                         
-            Simu_dailywatertable(1,daily)=zwt_d/24.
-            Simu_snowdepth(1,daily)=snow_dsim             
+            ! Simu_dailywatertable(1,daily)=zwt_d/24.
+            ! Simu_snowdepth(1,daily)=snow_dsim             
             ! endif
             ! if(yr.ge.(yrlim-first_year+1) .and. days.ge.dylim) goto 650
             ! write (122,1202) zwt,snow_dsim
-        enddo ! end of idays
-                
-        storage=accumulation
-        stor_use=Storage/times_storage_use
-        if(yr.eq.yrs_eq+yr_length .and. do_co2_da.eq.1)then
-            write(*,*)yr,LAI,gpp_yr,NPP_yr,pheno
-            write(61,601)year,LAI,gpp_yr,NPP_yr,real(pheno)
-        endif      
-        ! if(MCMC.ne.1) then
-        if (do_co2_da.ne.1) then            
-            write(*,*)year,LAI,gpp_yr,NPP_yr,pheno,pheno
-            write(61,601)year,LAI,gpp_yr,NPP_yr,Ra_yr,Rh_yr, &
-            &   ET,rain_yr,transp_yr,evap_yr,runoff_yr,GL_yr,    &
-            &   GW_yr,GR_yr,Pool1,Pool2,Pool3,Pool4,Pool5,   &
-            &   Pool6,Pool7,Pool8,out1_yr,out2_yr,out3_yr,   &
-            &   out4_yr,out5_yr,out6_yr,out7_yr,out8_yr
-        endif            
-601     format(i7,",",29(f15.4,","))
-        accumulation=0.0
-        onset=0
-        enddo            !end of simulations multiple years
+        ! enddo ! end of idays
+            
+            ! Jian: This may be summarised after a daily simulation.
+            
+            storage=accumulation
+            stor_use=Storage/720.
+            ! if(yr.eq.yrs_eq+yr_length .and. do_co2_da.eq.1)then
+            !     write(*,*)yr,LAI,gpp_yr,NPP_yr,pheno
+            !     write(61,601)year,LAI,gpp_yr,NPP_yr,real(pheno)
+            ! endif      
+        !     ! if(MCMC.ne.1) then
+        ! if (do_co2_da.ne.1) then            
+        !     write(*,*)year,LAI,gpp_yr,NPP_yr,pheno,pheno
+        !     write(61,601)year,LAI,gpp_yr,NPP_yr,Ra_yr,Rh_yr, &
+        !     &   ET,rain_yr,transp_yr,evap_yr,runoff_yr,GL_yr,    &
+        !     &   GW_yr,GR_yr,Pool1,Pool2,Pool3,Pool4,Pool5,   &
+        !     &   Pool6,Pool7,Pool8,out1_yr,out2_yr,out3_yr,   &
+        !     &   out4_yr,out5_yr,out6_yr,out7_yr,out8_yr
+        ! endif            
+! 601     format(i7,",",29(f15.4,","))
+!         accumulation=0.0
+!         onset=0
+!         enddo            !end of simulations multiple years
          
     ! if(MCMC.ne.1)then
-    if (do_co2_da.ne.1) then
-        first_year = year_seq(1)
-        i=1
-        do nyear=first_year,first_year+yr_length-1
-            if(MOD(nyear,4).eq.0)then
-                idays=366
-            else
-                idays=365
-            endif
-            idays = 365
-            do idayOfnyear=1,idays
-                write(62,602)i,nyear,idayOfnyear,(Simu_dailyflux(j,i),j=1,12)
-                write(662,6602)i,nyear,idayOfnyear,(Simu_dailyflux14(j,i),j=1,14)
-                i=i+1
-            enddo
-        enddo
-        do i=1,daily
-            ! write(662,6602)i,year,(Simu_dailyflux14(j,i),j=1,14)
-            write(63,603)i,(Simu_dailywater(j,i),j=1,31)
-            write(64,604)i,(Simu_dailyCH4(j,i),j=1,16)
+!     if (do_co2_da.ne.1) then
+!         first_year = year_seq(1)
+!         i=1
+!         do nyear=first_year,first_year+yr_length-1
+!             if(MOD(nyear,4).eq.0)then
+!                 idays=366
+!             else
+!                 idays=365
+!             endif
+!             idays = 365
+!             do idayOfnyear=1,idays
+!                 write(62,602)i,nyear,idayOfnyear,(Simu_dailyflux(j,i),j=1,12)
+!                 write(662,6602)i,nyear,idayOfnyear,(Simu_dailyflux14(j,i),j=1,14)
+!                 i=i+1
+!             enddo
+!         enddo
+!         do i=1,daily
+!             ! write(662,6602)i,year,(Simu_dailyflux14(j,i),j=1,14)
+!             write(63,603)i,(Simu_dailywater(j,i),j=1,31)
+!             write(64,604)i,(Simu_dailyCH4(j,i),j=1,16)
 
-            write(65,605)i,(Simu_dailysoilt(j,i),j=1,11)
-            write(66,606)i,(Simu_dailyice(j,i),j=1,10)
-            write(67,607)i,(Simu_dailywatertable(j,i),j=1,1)
-            write(68,608)i,(Simu_snowdepth(j,i),j=1,1)
-        enddo
+!             write(65,605)i,(Simu_dailysoilt(j,i),j=1,11)
+!             write(66,606)i,(Simu_dailyice(j,i),j=1,10)
+!             write(67,607)i,(Simu_dailywatertable(j,i),j=1,1)
+!             write(68,608)i,(Simu_snowdepth(j,i),j=1,1)
+!         enddo
        
-602      format(3(i7),",",11(f15.4,","),(f15.4))
-6602     format(3(i7,","),13(f15.4,","),(f15.4)) 
-603      format((i7),",",30(f15.4,","),(f15.4))
-604      format((i7),",",15(f15.4,","),(f15.4))
-605      format((i7),",",10(f15.4,","),(f15.4))
-606      format((i7),",",9(f15.4,","),(f15.4))
-607      format((i7),",",(f15.4))
-608      format((i7),",",(f15.4))
+! 602      format(3(i7),",",11(f15.4,","),(f15.4))
+! 6602     format(3(i7,","),13(f15.4,","),(f15.4)) 
+! 603      format((i7),",",30(f15.4,","),(f15.4))
+! 604      format((i7),",",15(f15.4,","),(f15.4))
+! 605      format((i7),",",10(f15.4,","),(f15.4))
+! 606      format((i7),",",9(f15.4,","),(f15.4))
+! 607      format((i7),",",(f15.4))
+! 608      format((i7),",",(f15.4))
 
-    endif 
-999      continue
-    return
+!     endif 
+! 999      continue
+!     return
         enddo
     end subroutine teco_simu
 
-    real function esat1(T)
-      real T
-      ! returns saturation vapour pressure in Pa
-      esat1 = 610.78*exp(17.27*T/(T + 237.3))
-      return
-   end
+!     real function esat1(T)
+!       real T
+!       ! returns saturation vapour pressure in Pa
+!       esat1 = 610.78*exp(17.27*T/(T + 237.3))
+!       return
+!    end
 
 end module driver

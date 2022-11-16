@@ -31,7 +31,7 @@ module mod_vegetation
    data Gaussw_cum/0.11846, 0.35777, 0.64222, 0.88153, 1.0/
 ! ------------------------------------------------------------------------------------
 contains
-   subroutine canopy()
+   subroutine canopy() 
       implicit none
       ! integer in_doy, in_hour
       ! real in_radsol, in_wind, in_tair, in_VPD, in_co2ca

@@ -6,7 +6,7 @@ module mod_soil
 
     contains
     ! subroutine for soil moisture
-    subroutine soilwater()
+    subroutine soilwater() 
         real :: infilt_max = 15.
         real DWCL(10), Tr_ratio(10)
         real SRDT(10), depth(10), rain_new, rain_t
