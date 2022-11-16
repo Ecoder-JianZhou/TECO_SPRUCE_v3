@@ -7,56 +7,17 @@ module mod_soil
     contains
     ! subroutine for soil moisture
     subroutine soilwater()
-        ! wsmax,wsmin,rdepth,FRLEN,THKSL,    &   !constants specific to soil/plant
-        ! &                rain,transp,evap,wcl,runoff,infilt,   &   !inputs
-        ! &                fwsoil,topfws,omega,wsc,zwt,phi,      &   !outputs
-        ! &                liq_water,infilt_rate,melt,ta,day_mod, &  ! added from soil thermal ..int
-        ! &                do_soilphy,snow_depth,ice,testout)                !outputs
-        ! ! All of inputs, the unit of water is 'mm', soil moisture or soil water content is a ratio
-        ! implicit none
-        ! ! soil traits
-        ! real wsmax,wsmin,wsmaxL(10),wsminL(10) !from input percent x%
-        ! real(KIND=8) FLDCAP,WILTPT ! ie. 0.xx
-        ! ! plant traits
-        ! real rdepth
-        ! 
-        ! ! climate conditions
-        ! real rain ! mm/hour
-        ! ! output from canopy model
-        ! real evap,transp
-        ! ! output variables
-        ! real fwsoil,topfws,omega
-        ! real fw(10),ome(10)
-        ! real thksl(10),depth(10),wsc(10),WUPL(10),EVAPL(10),SRDT(10)
-        ! real plantup(10)
-        ! real Tsrdt
-        ! real frlen(10) !fraction of root length in every layer
-        ! real wcl(10) !volum ratio
-        ! ! real fwcln(10) !  fraction of water in layers, like field capacity
-        ! real wtadd,twtadd,infilt,runoff,tr_allo
-        ! real exchangeL,supply,demand,omegaL(10)
-        ! integer i,j,k
-        ! real infilt_max
-        ! ! ******************
-        ! ! characters annotation for water table module  -MS
-        ! real vtot,phi
-        ! real zmax,thetasmin,zthetasmin,az
-        ! real zwt,zwt1,zwt2,zwt3
-        ! ! water table characters annotation end here  -MS
-        ! ! *******************
-        ! ! *** ..int added from soil thermal
-        ! real melt,ta,,rain_t,snow_depth,infilt_rate
-        ! integer day_mod
-        ! logical do_soilphy
-        ! real liq_water(10),ice(10),testout(11)
-        ! real ddd,cc,infilt_dbmemo
-        ! integer days,dtimes
-        ! ***    
         real :: infilt_max = 15.
         real DWCL(10), Tr_ratio(10)
         real SRDT(10), depth(10), rain_new, rain_t
         integer nfr
-        real infilt_dbmemo, twtadd, wtadd
+        real infilt_dbmemo, twtadd, wtadd, omegaL(10)
+        real exchangeL,supply,demand
+        real Tsrdt, tr_allo
+        real plantup(10), vtot
+        real zmax,thetasmin,zthetasmin,az
+        real zwt1,zwt2,zwt3
+        real fw(10), ome(10)
 
         WILTPT = wsmin/100.000
         FLDCAP = wsmax/100.000
@@ -131,55 +92,42 @@ module mod_soil
         ! water redistribution among soil layers
         do i=1,10
             wsc(i) = Amax1(0.00,(wcl(i)-wiltpt)*THKSL(i)*10.0)
-            ! ..int commented lines for soil thermal        
-            ! omegaL(i)=Amax1(0.001,(wcl(i)-WILTPT)/(FLDCAP-WILTPT))
-            if (do_soilphy) then 
-            omegaL(i)=Amax1(0.001,(liq_water(i)*100./thksl(i)-WILTPT)/(FLDCAP-WILTPT))
+            if (do_soilphy) then ! ..int commented lines for soil thermal 
+                omegaL(i)=Amax1(0.001,(liq_water(i)*100./thksl(i)-WILTPT)/(FLDCAP-WILTPT))
             else
-            omegaL(i)=Amax1(0.001,(wcl(i)-WILTPT)/(FLDCAP-WILTPT))
+                omegaL(i)=Amax1(0.001,(wcl(i)-WILTPT)/(FLDCAP-WILTPT))
             endif        
         enddo
-        ! write (*,*) wsc(1),'wsc(i)=Amax1(0.00,(wcl(i)-wiltpt)*THKSL(i)*10.0)'  !dbmemo
-        supply=0.0
-        demand=0.0
-        ! dbmemo
-        ! if (omegaL(1) .gt. 0.3 .and. (omegaL(2) .le. 0.3 .or. omegaL(3) .le. 0.3)) then
-            ! write (*,*) 'smaller than 0.3'
-        ! endif 
+        supply = 0.0
+        demand = 0.0
         do i=1,9
             if(omegaL(i).gt.0.3)then
-                ! print*,'demand',FLDCAP,wcl(i+1),THKSL(i+1),omegaL(i+1)   !dbmemo third correction
-                supply=wsc(i)*(omegaL(i)-0.3)
-                ! supply=wsc(i)*omegaL(i)
-                demand=(FLDCAP-wcl(i+1))*THKSL(i+1)*10.0      &
-                    &               *(1.0-omegaL(i+1))
-                exchangeL=AMIN1(supply,demand)
-                wsc(i)=wsc(i)- exchangeL
-                wsc(i+1)=wsc(i+1)+ exchangeL
-                wcl(i)=wsc(i)/(THKSL(i)*10.0)+wiltpt
-                wcl(i+1)=wsc(i+1)/(THKSL(i+1)*10.0)+wiltpt
-                ! write (*,*) wsc(1),i,exchangeL,supply,demand,'in loop'      !dbmemo
+                supply    = wsc(i)*(omegaL(i)-0.3)   ! supply=wsc(i)*omegaL(i)
+                demand    = (FLDCAP-wcl(i+1))*THKSL(i+1)*10.0*(1.0-omegaL(i+1))
+                exchangeL = AMIN1(supply,demand)
+                wsc(i)    = wsc(i)- exchangeL
+                wsc(i+1)  = wsc(i+1)+ exchangeL
+                wcl(i)    = wsc(i)/(THKSL(i)*10.0)+wiltpt
+                wcl(i+1)  = wsc(i+1)/(THKSL(i+1)*10.0)+wiltpt
             endif
         enddo
-        ! write (*,*) wsc(1),'wsc(i)=wsc(i)- exchangeL',exchangeL,'exchangeL',wiltpt,'wiltpt'   !dbmemo  
-        wsc(10)=wsc(10)-wsc(10)*0.00001     ! Shuang modifed
-        runoff = runoff+wsc(10)*0.00001     ! Shuang modifed
-        wcl(10)=wsc(10)/(THKSL(10)*10.0)+wiltpt
+        wsc(10) = wsc(10)-wsc(10)*0.00001     ! Shuang modifed
+        runoff  = runoff+wsc(10)*0.00001     ! Shuang modifed
+        wcl(10) = wsc(10)/(THKSL(10)*10.0)+wiltpt
         ! end of water redistribution among soil layers
         ! Redistribute evaporation among soil layers
-        Tsrdt=0.0
+        Tsrdt = 0.0
         DO i=1,10
             ! Fraction of SEVAP supplied by each soil layer
-            SRDT(I)=EXP(-6.73*(DEPTH(I)-THKSL(I)/2.0)/100.0) !/1.987
-            ! SRDT(I)=AMAX1(0.0,SRDT(I)*(wcl(i)-wiltpt)) !*THKSL(I))
-            Tsrdt=Tsrdt+SRDT(i)  ! to normalize SRDT(i)
+            SRDT(I) = EXP(-6.73*(DEPTH(I)-THKSL(I)/2.0)/100.0) !/1.987 ! SRDT(I)=AMAX1(0.0,SRDT(I)*(wcl(i)-wiltpt)) !*THKSL(I))
+            Tsrdt   = Tsrdt+SRDT(i)  ! to normalize SRDT(i)
         enddo
         do i=1,10
-            EVAPL(I)=Amax1(AMIN1(evap*SRDT(i)/Tsrdt,wsc(i)),0.0)  !mm
-            DWCL(I)=EVAPL(I)/(THKSL(I)*10.0) !ratio
-            wcl(i)=wcl(i)-DWCL(i)
+            EVAPL(I) = Amax1(AMIN1(evap*SRDT(i)/Tsrdt,wsc(i)),0.0)  !mm
+            DWCL(I)  = EVAPL(I)/(THKSL(I)*10.0) !ratio
+            wcl(i)   = wcl(i)-DWCL(i)
         enddo
-        evap=0.0       
+        evap = 0.0       
         do i=1,10
             evap=evap+EVAPL(I)
         enddo
@@ -187,26 +135,20 @@ module mod_soil
         ! and available water in each layer
         tr_allo=0.0
         do i=1,nfr
-            tr_ratio(i)=FRLEN(i)*wsc(i) !*(wcl(i)-wiltpt)) !*THKSL(I))
-            tr_allo=tr_allo+tr_ratio(i)
+            tr_ratio(i) = FRLEN(i)*wsc(i) !*(wcl(i)-wiltpt)) !*THKSL(I))
+            tr_allo     = tr_allo+tr_ratio(i)
         enddo
         do i=1,nfr
-            plantup(i)=AMIN1(transp*tr_ratio(i)/tr_allo, wsc(i)) !mm              
-            wupl(i)=plantup(i)/(thksl(i)*10.0)
-            wcl(i)=wcl(i)-wupl(i)
+            plantup(i) = AMIN1(transp*tr_ratio(i)/tr_allo, wsc(i)) !mm              
+            wupl(i)    = plantup(i)/(thksl(i)*10.0)
+            wcl(i)     = wcl(i)-wupl(i)
         enddo
-        
-        ! write (*,*) 'wcl(1)',wcl(1),'wsc(1)',wsc(1),'wupl(1)',wupl(1),'liq_water(1)',liq_water(1), &
-        ! & 'DWCL(1)',DWCL(1),'omegaL(1)',omegaL(1),'exchangeL',exchangeL !dbmemo
-            
-        ! write(81,801) wcl(1),wcl(2),wcl(3),wcl(4),wcl(5),WTADD,infilt,ddd,wupl(1),DWCL(1),exchangeL,rain_t,melt,rain_new,infilt_dbmemo
-    ! 801    format(15(f15.9,","))       ! dbmemo
-        transp=0.0
+        transp = 0.0
         do i=1,nfr
             transp=transp+plantup(i)
         enddo
 
-        ! ******************************************************    
+        ! ---------------------------------------------------------------------------    
         ! water table module starts here
         ! vtot = MAX(145.,wsc(1)+wsc(2)+wsc(3)+infilt)!+wsc(4)+wsc(5)   !total amount of water in top 500mm of soil  mm3/mm2 infilt here is standing water   infilt has distributed to wsc?
         if (do_soilphy) then
@@ -221,44 +163,24 @@ module mod_soil
         endif
         ! infilt means standing water according to jiangjiang
         ! vtot = MAX(145.,vtot+145.+rain-evap-transp-runoff)         ! vtot should not be smaller than 145, which is the water content when wt is at -300mm
-        phi = 0.56   !soil porosity   mm3/mm3   the same unit with theta
-        zmax = 300   !maximum water table depth   mm
-        thetasmin = 0.25    !minimum volumetric water content at the soil surface   cm3/cm3
-        zthetasmin = 100     !maximum depth where evaporation influences soil moisture   mm
-        az = (phi-thetasmin)/zthetasmin     ! gradient in soil moisture resulting from evaporation at the soil surface    mm-1
+        phi        = 0.56                           ! soil porosity   mm3/mm3   the same unit with theta
+        zmax       = 300                            ! maximum water table depth   mm
+        thetasmin  = 0.25                           ! minimum volumetric water content at the soil surface   cm3/cm3
+        zthetasmin = 100                            ! maximum depth where evaporation influences soil moisture   mm
+        az         = (phi-thetasmin)/zthetasmin     ! gradient in soil moisture resulting from evaporation at the soil surface    mm-1
         
         zwt1 = -sqrt(3.0*(phi*zmax-vtot)/(2.0*az))
         zwt2 = -(3.0*(phi*zmax-vtot)/(2.0*(phi-thetasmin)))
         zwt3 = vtot-phi*zmax                                   
         if ((zwt1 .ge. -100) .and. (zwt1 .le. 0))   zwt = zwt1  !the non-linear part of the water table changing line
         if (zwt2 .lt. -100)                         zwt = zwt2  !the linear part of the water table changing line
-
         ! if ((zwt2 .lt. -100) .and. (zwt2 .ge. -300))zwt = zwt2 !the linear part of the water table changing line valid when Vtot>145mm
         ! if (zwt2 .le. -300)                         zwt = -300
-        if (phi*zmax .lt. vtot)                     zwt = zwt3  !the linear part when the water table is above the soil surface 
-        
-        ! if (do_soilphy) then
-        !     write(81,1810) WTADD,infilt,runoff,evap,transp,vtot,zwt,liq_water(1),liq_water(2),liq_water(3),liq_water(4),liq_water(5), &
-        !     & liq_water(6),liq_water(7),liq_water(8),liq_water(9),liq_water(10), &
-        !     & ice(1),ice(2),ice(3),ice(4),ice(5),ice(6),ice(7),ice(8),ice(9),ice(10), &
-        !     & wcl(1),wcl(2),wcl(3),wcl(4),wcl(5),wcl(6),wcl(7),wcl(8),wcl(9),wcl(10)
-        ! else
-        ! write(81,181)WTADD,infilt,runoff,evap,transp,vtot,zwt,wsc(1),wsc(2),wsc(3),wsc(4),  &
-        !     &        wsc(5),wsc(6),wsc(7),wsc(8),wsc(9),wsc(10),wcl(1),wcl(2),wcl(3),wcl(4),  &
-        !     &        wcl(5),wcl(6),wcl(7),wcl(8),wcl(9),wcl(10)
-        ! endif
-        ! 181	format(27(f15.9,","))
-        ! 1810    format(37(f15.9,","))
-        ! write(*,*) 'zwt',zwt!,'evap',evap,'transp',transp,'vtot',vtot         !show on screen          
-            
+        if (phi*zmax .lt. vtot)                     zwt = zwt3  !the linear part when the water table is above the soil surface            
         ! water table module ends here
-        ! ******************************************************    
-
-
-            
+        ! ---------------------------------------------------------------------------------------------------------------
         ! Output fwsoil, omega, and topfws
         ! ..int commented lines below for soil thermal module
-        
         ! do i=1,nfr       
         !     ome(i)=(wcl(i)-WILTPT)/(FLDCAP-WILTPT)
         !     ome(i)=AMIN1(1.0,AMAX1(0.0,ome(i)))
@@ -268,10 +190,10 @@ module mod_soil
         ! ..int new lines added for soil thermal module 
         do i=1,nfr       
             if (do_soilphy) then 
-            ome(i)=(liq_water(i)*100./thksl(i)-WILTPT)/(FLDCAP-WILTPT)
+                ome(i)=(liq_water(i)*100./thksl(i)-WILTPT)/(FLDCAP-WILTPT)
             else 
-            ome(i)=(wcl(i)-WILTPT)/(FLDCAP-WILTPT)
-            ome(i)=AMIN1(1.0,AMAX1(0.0,ome(i)))
+                ome(i)=(wcl(i)-WILTPT)/(FLDCAP-WILTPT)
+                ome(i)=AMIN1(1.0,AMAX1(0.0,ome(i)))
             endif 
             fw(i)=amin1(1.0,3.333*ome(i))
         enddo
@@ -282,35 +204,27 @@ module mod_soil
             topfws=amin1(1.0,(wcl(1)-WILTPT)/((FLDCAP-WILTPT)))
         endif     
 
-        fwsoil=0.0
-        omega=0.0
+        fwsoil = 0.0
+        omega  = 0.0
         do i=1,nfr
-            fwsoil=fwsoil+fw(i)*frlen(i)
-            omega=omega+ome(i)*frlen(i)
+            fwsoil = fwsoil+fw(i)*frlen(i)
+            omega  = omega+ome(i)*frlen(i)
         enddo
-        
-        !    write(81,181)WTADD,infilt,runoff,evap,transp,vtot,zwt,wsc(1),wsc(2),wsc(3),wsc(4),  &
-        !        &        wsc(5),wsc(6),wsc(7),wsc(8),wsc(9),wsc(10),wcl(1),wcl(2),wcl(3),wcl(4),  &
-        !        &        wcl(5),wcl(6),wcl(7),wcl(8),wcl(9),wcl(10)
-        !181	format(27(f15.9,","))    
-
         return
-    end
+    end subroutine soilwater
 
-
-    subroutine snow_d(rain_d,lat,days,ta,snow_dsim,fa,fsub,rho_snow,melt,dcount,decay_m)
-        real lat,tr,daylength,dec,melt,fa,sublim,dsnow,snow_in,decay_m,fsub
-        real rain_d,snow_dsim,rho_snow,dcount,ta
-        integer days
+    ! subroutine snow_d(rain_d,lat,days,ta,snow_dsim,fa,fsub,rho_snow,melt,dcount,decay_m)
+    subroutine snow_d()
+        ! real lat,tr,daylength,dec,melt,fa,sublim,dsnow,snow_in,decay_m,fsub
+        real tr,daylength,dec,sublim,dsnow, in_snow
+        ! real rain_d,snow_dsim,rho_snow,dcount,ta
+        ! integer days
         real snow_dsim_pre
-           
-        ! rho_snow =100.
-        ! fa=0.1
-        ! fsub=0.1
-        tr=0.0174532925
-        dec=sin(((real(days)-70.)/365.)*360.*tr)*23.44
-        daylength=acos(-tan(lat*tr)*tan(dec*tr))/7.5 
-        daylength=daylength/tr/24.
+
+        tr        = 0.0174532925
+        dec       = sin(((real(iday)-70.)/365.)*360.*tr)*23.44  ! dec=sin(((real(days)-70.)/365.)*360.*tr)*23.44
+        daylength = acos(-tan(lat*tr)*tan(dec*tr))/7.5 
+        daylength = daylength/tr/24.
                 
         if (snow_dsim .ge. 0.) then
             dcount = dcount +1.
@@ -319,12 +233,6 @@ module mod_soil
         endif
         sublim=0.
         if (ta .gt. 0. .and. snow_dsim .gt. 0.) sublim=fsub*715.5*daylength*esat(ta)/(ta+273.2)*0.001   ! 0.001 from Pa to kPa
-        !if (sublim .lt. 0.1) sublim=0.
-        !sublim=0.
-        !sublim=AMIN1(sublim,0.2)
-        !melt=fa*(2.63+2.55*ta+0.0912*ta*rain_d)
-    
-        !if (snow_dsim .gt. 0.7) sublim = 10.
         melt=0.
         ! if (ta .gt. 0. .and. snow_dsim .gt. 0.) melt=fa*(2.63+2.55*ta+0.0912*ta*rain_d)       !yy version
         if (ta .gt. 1.0e-10 .and. snow_dsim .gt. 0.) melt=fa*(2.63+2.55*ta+0.0912*ta*rain_d)   !dbmemo updated version
@@ -339,67 +247,43 @@ module mod_soil
         ! melt=AMIN1(melt, snow_dsim*rho_snow-sublim)
         ! if (melt .lt. 2.) melt=0.
         if (ta .le. 0.) then         ! dbmemo second bug in dbmemo
-            snow_in =rain_d
+            in_snow =rain_d
         else
-            snow_in = 0.
+            in_snow = 0.
         endif
-        dsnow=snow_in-sublim-melt 
+        dsnow         = in_snow-sublim-melt 
         snow_dsim_pre = snow_dsim
-        snow_dsim =snow_dsim + dsnow/rho_snow 
+        snow_dsim     = snow_dsim + dsnow/rho_snow 
         if (snow_dsim .le. 0.0) then 
             snow_dsim=0.0 
-            melt = snow_dsim_pre*rho_snow +snow_in-sublim    !! for water part
+            melt = snow_dsim_pre*rho_snow +in_snow-sublim    !! for water part
         endif 
         melt=AMAX1(melt, 0.)
-           
-        ! write(*,*)'snow_dsim',snow_dsim
-        ! write(*,*)'snow_dsim',snow_dsim
-        ! write(*,*)'doy',pi   
-        
-        ! write (*,*) 'melt',melt,'snow_dsim_pre',snow_dsim_pre,'snow_in',snow_in,'ta',ta,'rain_d',rain_d, &        ! dbmemo
-        ! &  'sublim',sublim,'decay_m',decay_m,'dcount',dcount,'fa',fa  ! dbmemo
-        ! write (*,*) 'variables for sublim',sublim,'fsub',fsub,'daylength',daylength,'snow_dsim',snow_dsim   ! dbmemo
-    
-        
-        
-        ! write(88,188) melt,snow_dsim,snow_in,ta
-    ! 188    format(4(f11.4,","))  
-        
         return
-    end
-    subroutine Tsoil_simu(Rsoilab1,Rsoilab2,QLleaf,QLair,Tair,Dair,&
-        &         fbeam,FLAIT,sigma,emsoil,rhoS,Rconst,&
-        &         extkd,extkb,cpair,Patm,AirMa,H2OMw,&
-        &         H2OLv0,wcl,raero,wsmax,wsmin,wind,sftmp,Tsoill,testout,ht,ice,&
-        &         snow_depth,Tsnow,Twater,Tice,water_tw,ice_tw,diff_s,G,tsoil,&
-        &         diff_snow,albedo_snow,resht,thd_snow_depth,thksl,zwt,Esoil,Hsoil,liq_water,&
-        &         shcap_snow,condu_snow,condu_b,depth_ex,dcount_soil)          
+    end subroutine snow_d
+
+
+    subroutine Tsoil_simu()          
         implicit none 
-        integer i
-        real tsoil
-        real Rsoilab1,Rsoilab2,qlleaf,qlair,tair,Dair,fbeam,flait,sigma,emsoil
-        real rhoS(3),rconst,extkd,extkb,cpair,patm,airma,h2omw,h2olv0,raero,wsmax,wsmin
-        real esoil,G,hsoil,wind,ht,esat,theta_sat_min,Rsoilabs,Rsoil,difsv2,difsv1
+        real difsv2,difsv1
         real delta
         !real thksl(10)
-        real TairK,H2OLv
-        real ice(10)
-        real wcl(10),thksl(10),ufw(10),frac_ice1,frac_ice2
-        real,dimension(10):: Tsoill,liq_water
+        real ufw(10),frac_ice1,frac_ice2
+        ! real,dimension(10):: Tsoill,liq_water
         real,dimension(11)::testout
-        real WILTPT,FILDCP,temph1,temph2     
-        real sftmp,hitmax,rflen,zopnd,thkns1,thkns2
-        real Twater, flux_water,Tsnow,flux_snow,Tice
-        real condu_water,shcap_water,shcap_ice,shcap_snow,condu_snow,depth_ex
-        real albedo_snow, albedo_water,ice_incr,heat_excess,heat_adjust,ice_tw,water_tw
-        real inter_var,latent_heat_fusion,QLsoil,Rsoilab3
-        real rhocp,slope,psyc,Cmolar,fw1,resoil,rLAI,resht,resdh,dnr,dsh,dgh,dle,drsdh
-        real f_om,theta_sat_om,b_om,b_min,phi_om,phi_min,theta_sat,b_tot,phi_sat,gravi
-        real water_table_depth,snow_depth,temph_water,temph_snow
+        real temph1,temph2     
+        real thkns1,thkns2
+        real flux_snow
+        real condu_water,shcap_water,shcap_ice              !,shcap_snow,condu_snow,depth_ex
+        real albedo_water,ice_incr,heat_excess,heat_adjust  !,ice_tw,water_tw
+        real inter_var,latent_heat_fusion                   !,QLsoil,Rsoilab3
+        real resdh,dnr,dsh,dgh,dle,drsdh                    ! rhocp,slope,psyc,Cmolar,fw1,resoil,rLAI,resht,
+        ! real f_om,theta_sat_om,b_om,b_min,phi_om,phi_min,theta_sat,b_tot,phi_sat,gravi
+        real water_table_depth,temph_water,temph_snow
         real condu_air,shcap_air,condu(10), shcap(10), condu_ice,tsoill_pre, thd_t
         real ice_density,condu_soil,shcap_soil 
-        real thd_snow_depth,resht_lai,zwt,snow_depth_t
-        real diff_s, diff_snow,condu_s,tsoill_0,diff_air,d_cor,condu_b,dcount,dcount_soil
+        real resht_lai,snow_depth_t
+        real condu_s,tsoill_0,diff_air,d_cor                !,condu_b,dcount,dcount_soil
         real sftmp_pre
         integer n_layers
         real, allocatable ::depth_z(:) 
@@ -407,34 +291,28 @@ module mod_soil
         allocate(depth_z(n_layers))      
         ! write(*,*),thd_t
         ! soil thermal conductivity W m-2 K-1
-        ice_density=916.!916.
-        ! thkns1=thksl(1)/2.
-        thkns1=thksl(1)/4.
-        shcap_ice=2117.27*ice_density
-        condu_ice=2.29
-        condu_water=0.56!0.56
-        shcap_water=4188000.
-        condu_soil=0.25
-        shcap_soil=2600000.
-        condu_s=0.25
+        ice_density = 916.!916.
+        thkns1      = thksl(1)/4.             ! thkns1=thksl(1)/2.
+        shcap_ice   = 2117.27*ice_density
+        condu_ice   = 2.29
+        condu_water = 0.56!0.56
+        shcap_water = 4188000.
+        condu_soil  = 0.25
+        shcap_soil  = 2600000.
+        condu_s     = 0.25
         ! thd_t=0.0
-        thd_t=-1.0        
-        diff_snow=3600.*condu_snow/shcap_snow*10000.
-        diff_s=3600.*condu_b/shcap_soil*10000.
-    
+        thd_t       = -1.0        
+        diff_snow   = 3600.*condu_snow/shcap_snow*10000.
+        diff_s      = 3600.*condu_b/shcap_soil*10000.
         latent_heat_fusion = 333700.   ! j kg-1
-        condu_air=0.023
-        shcap_air=1255.8
-          
-        diff_air=3600.*condu_air/shcap_air*10000. 
-               
-        water_tw=zwt*0.001-ice_tw ! might means total water that is liquid, add up all layers
+        condu_air    = 0.023
+        shcap_air    = 1255.8
+        diff_air     = 3600.*condu_air/shcap_air*10000.      
+        water_tw     = zwt*0.001-ice_tw ! might means total water that is liquid, add up all layers
         water_table_depth=zwt*0.1
-          
         snow_depth_t = snow_depth - 0.46*0.0     ! warming in Tair impact on snow_depth
                                                    ! in unit cm 0.46 based on snow_depth vs. tair regression     
         if (snow_depth_t .lt. thd_snow_depth) snow_depth_t =0.0
-          
         if (snow_depth_t .gt. 0.) then
             dcount_soil = dcount_soil +1./24.
         else 
@@ -444,13 +322,13 @@ module mod_soil
         if (water_table_depth .lt. 4. .and. water_table_depth .gt. 0.0) water_table_depth =0.    ! avoid numerical issues when 
         ! if (water_table_depth .lt. -99.) water_table_depth =-30.    ! temporary for NaN    
         ! if (water_table_depth .lt. -299.) water_table_depth =-30.    ! -299 is a more reasonable value Shuang Ma         
-        albedo_water =0.1      
+        albedo_water = 0.1      
         ! soil water conditions
-        WILTPT=wsmin/100.
-        FILDCP=wsmax/100.
-        TairK=Tair+273.2            
-        flux_snow = 0.0   
-        depth_z=(/0., 0., 0., 0., 0., 0., 0.,0.,0.,0./) 
+        WILTPT       = wsmin/100.
+        FILDCP       = wsmax/100.
+        TairK        = Tair+273.2            
+        flux_snow    = 0.0   
+        depth_z      = (/0., 0., 0., 0., 0., 0., 0.,0.,0.,0./) 
         ! ..int add unfrozen water ratio
         ! ufw=(/0.0042,0.0063,0.0063,0.0063,0.0063,0.0063,0.0063,0.0063,0.0063,0.0063/)
         ufw=(/0.0163,0.0263,0.0563,0.0563,0.0563,0.1162,0.1162,0.1162,0.1162,0.1162/)
@@ -462,26 +340,26 @@ module mod_soil
         ! elseif (water_table_depth .gt. 0.0) then
         !     emsoil =0.99
         ! endif
-        QLsoil=emsoil*sigma*((sftmp+273.2)**4)
-        Rsoilab3=(QLair+QLleaf)*(1.0-rhoS(3))-QLsoil       
+        QLsoil   = emsoil*sigma*((sftmp+273.2)**4)
+        Rsoilab3 = (QLair+QLleaf)*(1.0-rhoS(3))-QLsoil       
         ! Total radiation absorbed by soil
         if (snow_depth_t .gt. 0.0) then 
-            Rsoilabs=(Rsoilab1+Rsoilab2)*(1-albedo_snow)/(1-0.1)+Rsoilab3  
+            Rsoilabs = (Rsoilab1+Rsoilab2)*(1-albedo_snow)/(1-0.1)+Rsoilab3  
         elseif (water_table_depth .gt. 0.0) then 
-            Rsoilabs=(Rsoilab1+Rsoilab2)*(1-albedo_water)/(1-0.1)+Rsoilab3  
+            Rsoilabs = (Rsoilab1+Rsoilab2)*(1-albedo_water)/(1-0.1)+Rsoilab3  
         else
-            Rsoilabs=Rsoilab1+Rsoilab2+Rsoilab3
+            Rsoilabs = Rsoilab1+Rsoilab2+Rsoilab3
         endif
           
         ! thermodynamic parameters for air
-        rhocp=cpair*Patm*AirMa/(Rconst*TairK)      
-        H2OLv=H2oLv0-2.365e3*Tair
-        slope=(esat(Tair+0.01)-esat(Tair))/0.01   
+        rhocp  = cpair*Patm*AirMa/(Rconst*TairK)      
+        H2OLv  = H2oLv0-2.365e3*Tair
+        slope  = (esat(Tair+0.01)-esat(Tair))/0.01   
     
-        psyc=Patm*cpair*AirMa/(H2OLv*H2OMw)
-        Cmolar=Patm/(Rconst*TairK)
-        fw1=AMIN1(AMAX1((FILDCP-wcl(1))/(FILDCP-WILTPT),0.3),1.0)    
-    
+        psyc   = Patm*cpair*AirMa/(H2OLv*H2OMw)
+        Cmolar = Patm/(Rconst*TairK)
+        fw1    = AMIN1(AMAX1((FILDCP-wcl(1))/(FILDCP-WILTPT),0.3),1.0)    
+
         if (water_table_depth .gt. 0.0) then 
             Rsoil = 0. 
         else 
@@ -496,115 +374,93 @@ module mod_soil
         ! &     (slope*Y+psyc*(rswv+rbw+raero)/(rbH_L+raero))
     
         Esoil=(slope*(Rsoilabs-G)+rhocp*Dair/(raero+rLAI))/       &
-            &      (slope+psyc*(Rsoil/(raero+rLAI)+1.))
-         
-        ! if (snow_depth_t .gt. 0.) Esoil=0.
-              
-        ! endif
-        ! Esoil=0.
+               &      (slope+psyc*(Rsoil/(raero+rLAI)+1.))
         resht_lai=resht*FLAIT
         ! resht_lai= resht*exp(FLAIT)/15. ! need improvement, should be a function of LAI 
         ! if (water_table_depth .gt. 0.0) resht_lai=resht/FLAIT*0.2
-    
+
         ! resht_lai=200.      
-        Hsoil=rhocp*(sftmp-Tair)/resht_lai
-    
-        ! write (84,184) Esoil,slope,Rsoilabs,G,rhocp,Dair,raero,rLAI,psyc,Rsoil,  &
-        ! &  Hsoil,sftmp,Tair,resht_lai
-    !184   format(14(f15.9,","))     
-          
-        ! Hsoil=rhocp*(sftmp-Tair)/resht_lai
+        Hsoil=rhocp*(sftmp-Tair)/resht_lai   
         ! Hsoil=1010.*1.17*(sftmp-Tair)/resht_lai
         i=1;
-        condu(i)=(FILDCP-wcl(i))*condu_air+liq_water(i)/(thksl(i)*0.01)*condu_water+ &
-            &  ice(i)/(thksl(i)*0.01)*condu_ice +(1-FILDCP)*condu_soil
-        shcap(i)=(FILDCP-wcl(i))*shcap_air+liq_water(i)/(thksl(i)*0.01)*shcap_water+ &
-            ice(i)/(thksl(i)*0.01)*shcap_ice +(1-FILDCP)*shcap_soil
-        difsv1=3600.*condu(i)/shcap(i)*10000.
-            
-        G=condu(1)*(sftmp-tsoill(1))/(thksl(1)/2.*0.01)
+        condu(i) = (FILDCP-wcl(i))*condu_air+liq_water(i)/(thksl(i)*0.01)*condu_water+ &
+                    &  ice(i)/(thksl(i)*0.01)*condu_ice +(1-FILDCP)*condu_soil
+        shcap(i) = (FILDCP-wcl(i))*shcap_air+liq_water(i)/(thksl(i)*0.01)*shcap_water+ &
+                    &  ice(i)/(thksl(i)*0.01)*shcap_ice +(1-FILDCP)*shcap_soil
+        difsv1   = 3600.*condu(i)/shcap(i)*10000.    
+        G        = condu(1)*(sftmp-tsoill(1))/(thksl(1)/2.*0.01)
         if (snow_depth_t .gt. 0.0) then 
-            G=condu_snow*(sftmp-Tsnow)/(snow_depth_t/2.*0.01)
+            G = condu_snow*(sftmp-Tsnow)/(snow_depth_t/2.*0.01)
         endif
           
         ! thksl(1)
         ! G=0.   
         ! Residual heat energy.
-        RESDH=Rsoilabs-Hsoil-Esoil-G
-        ! G=RESDH 
+        RESDH = Rsoilabs-Hsoil-Esoil-G
         ! First derivative of net radiation; sensible heat; ground heat;
-        DNR=4.*emsoil*sigma*(sftmp+273.2)**3
-        DSH=rhocp/resht_lai 
-        DGH=condu_s/(thksl(1)/2.*0.01)
-        DLE=(DNR+DGH)*slope/(slope+psyc*(Rsoil/(raero+rLAI)+1.))      
-        drsdh=-DNR-DSH-DGH-DLE
+        DNR   = 4.*emsoil*sigma*(sftmp+273.2)**3
+        DSH   = rhocp/resht_lai 
+        DGH   = condu_s/(thksl(1)/2.*0.01)
+        DLE   = (DNR+DGH)*slope/(slope+psyc*(Rsoil/(raero+rLAI)+1.))      
+        drsdh = -DNR-DSH-DGH-DLE
         ! Calculate increment DELTA.
-        DELTA=resdh/drsdh
-        sftmp_pre=sftmp
-        sftmp=sftmp-DELTA
+        DELTA     = resdh/drsdh
+        sftmp_pre = sftmp
+        sftmp     = sftmp-DELTA
         if (ABS(sftmp_pre -sftmp) .gt. 20. ) sftmp=sftmp_pre  
-        tsoill_0=sftmp
-        ! Temperature dynamics along soil profile
-        ! difsv1=diff_s
-                 
-        ! if (snow_depth_t .gt. 0.) then
-        !    d_cor=20.
-        !    diff_snow=d_cor*diff_snow/snow_depth_t
-        !    write(*,*),snow_depth_t
-        ! endif
+        tsoill_0  = sftmp
+
         do i=1,10
-            Tsoill_pre=tsoill(i)    
+            Tsoill_pre = tsoill(i)    
             if (water_table_depth .lt. 0.0 .and. -water_table_depth .lt. depth_z(i)) then
-                liq_water(i)=FILDCP*thksl(i)*0.01-ice(i)
+                liq_water(i) = FILDCP*thksl(i)*0.01-ice(i)
             else
-                liq_water(i)=wcl(i)*thksl(i)*0.01-ice(i)
+                liq_water(i) = wcl(i)*thksl(i)*0.01-ice(i)
             endif          
             if (i .eq. 1) then 
-                depth_z(1)=thksl(1)
+                depth_z(1) = thksl(1)
             else 
-                depth_z(i)=depth_z(i-1)+thksl(i)
+                depth_z(i) = depth_z(i-1)+thksl(i)
             endif
             
-            thkns2=(thksl(i)+thksl(i+1))/2.
+            thkns2 = (thksl(i)+thksl(i+1))/2.
                      
             if (i .eq. 10) then
-                difsv2=3600.*condu(i)/shcap(i)*10000. 
+                difsv2 = 3600.*condu(i)/shcap(i)*10000. 
             else
-                condu(i+1)=(FILDCP-wcl(i+1))*condu_air+liq_water(i+1)/(thksl(i+1)*0.01)*condu_water+ &
-                    &  ice(i+1)/(thksl(i+1)*0.01)*condu_ice +(1-FILDCP)*condu_soil
-                shcap(i+1)=(FILDCP-wcl(i+1))*shcap_air+liq_water(i+1)/(thksl(i+1)*0.01)*shcap_water+ &
-                    &  ice(i+1)/(thksl(i+1)*0.01)*shcap_ice +(1-FILDCP)*shcap_soil 
-                difsv2=3600.*condu(i+1)/shcap(i+1)*10000.
+                condu(i+1) = (FILDCP-wcl(i+1))*condu_air+liq_water(i+1)/(thksl(i+1)*0.01)*condu_water+ &
+                                &  ice(i+1)/(thksl(i+1)*0.01)*condu_ice +(1-FILDCP)*condu_soil
+                shcap(i+1) = (FILDCP-wcl(i+1))*shcap_air+liq_water(i+1)/(thksl(i+1)*0.01)*shcap_water+ &
+                                &  ice(i+1)/(thksl(i+1)*0.01)*shcap_ice +(1-FILDCP)*shcap_soil 
+                difsv2     = 3600.*condu(i+1)/shcap(i+1)*10000.
             endif     
-            temph2=(difsv1+difsv2)*(Tsoill(i)-Tsoill(i+1))/thkns2 
-            !(dcount_soil/150.)**3.*
+            temph2 = (difsv1+difsv2)*(Tsoill(i)-Tsoill(i+1))/thkns2 
             !!!!!!!!!!!!!!!!!!!! start first layer !!!!!!!!!!!!!!!!!!!!!!
             !!!!!! adjust if there are snow or water layer above !!!!!!!!!!!!!!!!!!!!
             if(i.eq.1) then
                 if (snow_depth_t .gt. 0.) then   
                     temph_snow = Amin1(diff_snow,difsv1)*(Tsnow-Tsoill(1))/((snow_depth_t+thksl(1))/2.)
-                    Tsnow=Tsnow+(exp(-depth_ex*snow_depth_t)*diff_snow*(sftmp-Tsnow)/(snow_depth_t/2.) &
-                        &    -temph_snow)/(snow_depth_t/2.+(snow_depth_t+thksl(1))/2.) 
-                    Tsoill(1)=Tsoill(1)+(temph_snow &
-                        &    -temph2)/((snow_depth_t+thksl(1))/2.+thkns2) 
+                    Tsnow      = Tsnow+(exp(-depth_ex*snow_depth_t)*diff_snow*(sftmp-Tsnow)/(snow_depth_t/2.) &
+                                    &    -temph_snow)/(snow_depth_t/2.+(snow_depth_t+thksl(1))/2.) 
+                    Tsoill(1)  = Tsoill(1)+(temph_snow &
+                                    &    -temph2)/((snow_depth_t+thksl(1))/2.+thkns2) 
                     if (Tsnow .gt.0.0) then 
-                        Tsnow =0.0   
-                        Tsoill(1)=0.
+                        Tsnow     = 0.0   
+                        Tsoill(1) = 0.
                     endif
-                    ! write(*,*),temph2
-                    drsdh =0.0    ! temporarily set drsdh =0 for heat adjustment of soil when  
-                    tsoill_0= (Tsoill(1)+Tsnow)/2.
+                    drsdh    = 0.0    ! temporarily set drsdh =0 for heat adjustment of soil when  
+                    tsoill_0 = (Tsoill(1)+Tsnow)/2.
                 elseif (water_table_depth .gt. 0.) then  
                     temph_water = (3600.*condu_water/shcap_water*10000.+difsv1)*(Twater-Tsoill(1))/((water_table_depth+thksl(1))/2.)! there is snow layer 
-                    Twater=Twater+(2.*3600.*condu_water/shcap_water*10000.*(sftmp-Twater)/(water_table_depth/2.) &
-                        &        -temph_water)/(water_table_depth/2.+(water_table_depth+thksl(1))/2.) 
+                    Twater      = Twater+(2.*3600.*condu_water/shcap_water*10000.*(sftmp-Twater)/(water_table_depth/2.) &
+                                    &        -temph_water)/(water_table_depth/2.+(water_table_depth+thksl(1))/2.) 
                     !!!!!!!!!!!!!!!!!!  Phase change surface water !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                     if (Twater .lt. 0.0 .and. water_tw .gt. 0.0) then  ! freeze 
-                        heat_excess=-(shcap_water/360000.*water_tw*100.-drsdh)*Twater
-                        ice_incr=heat_excess*3600./latent_heat_fusion/ice_density
-                        !!       ..int add mechanism of unfrozen water in frozen soil layers, typically happens in high latitude region
+                        heat_excess = -(shcap_water/360000.*water_tw*100.-drsdh)*Twater
+                        ice_incr    = heat_excess*3600./latent_heat_fusion/ice_density
+                        !!-----------int add mechanism of unfrozen water in frozen soil layers, typically happens in high latitude region
                         !!              according to obs soil water content, winter water never goes below 0.063 at -20cm and 0.042 at surface layer
-                        !! $$$$$$$$$$$      !tuneice
+                        !!       !tuneice
                         !                if (ice_incr .lt. 0.) then   
                         !                   if (i .eq. 1.) then
                         !                       if (liq_water(i) .le. ufw(i)) then
@@ -626,18 +482,18 @@ module mod_soil
                        
                         ! write(*,*)'water_tw',water_tw
                         if (ice_incr .lt. water_tw) then
-                            ice_tw=ice_tw +ice_incr
-                            water_tw=water_tw-ice_incr
-                            Twater=0.0
-                            Tice=0.0
+                            ice_tw   = ice_tw +ice_incr
+                            water_tw = water_tw-ice_incr
+                            Twater   = 0.0
+                            Tice     = 0.0
                         else
-                            ice_tw=ice_tw +water_tw
-                            water_tw=0.0
-                            Tice = Tice - latent_heat_fusion*(ice_incr-water_tw)*ice_density/(shcap_ice*ice_tw)
+                            ice_tw   = ice_tw +water_tw
+                            water_tw = 0.0
+                            Tice     = Tice - latent_heat_fusion*(ice_incr-water_tw)*ice_density/(shcap_ice*ice_tw)
                         endif     
                     elseif (Twater .gt. 0.0 .and. ice_tw .gt. 0.0) then    ! thraw              
-                        heat_excess=(shcap_water/360000.*ice_tw*100.-drsdh)*Twater
-                        ice_incr=heat_excess*3600./latent_heat_fusion/ice_density
+                        heat_excess  = (shcap_water/360000.*ice_tw*100.-drsdh)*Twater
+                        ice_incr     = heat_excess*3600./latent_heat_fusion/ice_density
                         !! $$$$$$$$$$$
                         !! $$$$$$$$$$$      !tuneice
                         !                if (ice_incr .lt. 0.) then   
@@ -661,34 +517,33 @@ module mod_soil
                         !! $$$$$$$$$$$                   
              
                         if (ice_incr .lt. ice_tw) then
-                            ice_tw=ice_tw -ice_incr
-                            water_tw=water_tw+ice_incr
-                            Twater=0.0
-                            Tice=0.0
+                            ice_tw   = ice_tw -ice_incr
+                            water_tw = water_tw+ice_incr
+                            Twater   = 0.0
+                            Tice     = 0.0
                         else
-                            water_tw=water_tw +ice_tw
-                            ice_tw=0.0
-                            Twater = Twater + latent_heat_fusion*(ice_incr-ice_tw)*ice_density/(shcap_water*water_tw)
+                            water_tw = water_tw +ice_tw
+                            ice_tw   = 0.0
+                            Twater   = Twater + latent_heat_fusion*(ice_incr-ice_tw)*ice_density/(shcap_water*water_tw)
                         endif
-                        !write(*,*)'heat_excess',ice_incr-ice_tw
                     endif                       
                     !!!!!!!!!!!!!!!!!!!!!!!!! end of phase change for surface layer !!!!!!!!!!!!!!!!!!!  
                     temph2=(difsv1+3600.*condu_water/shcap_water*10000.)*(Tsoill(i)-Tsoill(i+1))/thkns2 
                     if (water_tw .eq. 0.0 .and. ice_tw .gt. 0.0) then 
-                        Tsoill(1)=Tsoill(1)+(2.*3600.*condu_ice/shcap_ice*10000.*(Tice-Tsoill(1))/thkns1 &
-                            &     -temph2)/(thkns1+thkns2) 
+                        Tsoill(1) = Tsoill(1)+(2.*3600.*condu_ice/shcap_ice*10000.*(Tice-Tsoill(1))/thkns1 &
+                                    &     -temph2)/(thkns1+thkns2) 
                     else 
-                        Tsoill(1)=Tsoill(1)+(2.*3600.*condu_water/shcap_water*10000.*(Twater-Tsoill(1))/thkns1 &
-                            &     -temph2)/(thkns1+thkns2) 
+                        Tsoill(1) = Tsoill(1)+(2.*3600.*condu_water/shcap_water*10000.*(Twater-Tsoill(1))/thkns1 &
+                                    &     -temph2)/(thkns1+thkns2) 
                     endif
-                    drsdh =0.0    ! temporarily set drsdh =0 for heat adjustment of soil       
+                    drsdh = 0.0    ! temporarily set drsdh =0 for heat adjustment of soil       
                 else   
-                    Tsoill(1)=Tsoill(1)+(diff_s*(sftmp-Tsoill(1))/thkns1 &
-                        &     -temph2)/(thkns1+thkns2)
+                    Tsoill(1) = Tsoill(1)+(diff_s*(sftmp-Tsoill(1))/thkns1 &
+                                &     -temph2)/(thkns1+thkns2)
                 endif
                 !!!!!  phase change in top soil       
-                heat_excess=drsdh*(thd_t-Tsoill(i))+shcap(i)*thksl(i)*(Tsoill(i)-thd_t)/360000.         
-                ice_incr=heat_excess*3600./latent_heat_fusion/ice_density        
+                heat_excess = drsdh*(thd_t-Tsoill(i))+shcap(i)*thksl(i)*(Tsoill(i)-thd_t)/360000.         
+                ice_incr    = heat_excess*3600./latent_heat_fusion/ice_density        
                 !
                 !! $$$$$$$$$$$
                 !! $$$$$$$$$$$      !tuneice
@@ -714,25 +569,25 @@ module mod_soil
                 !!          
                 inter_var = ice(i)   
                 if (ice_incr .lt. 0.) then     ! freeze             
-                    ice(i)=Amin1(liq_water(i)+inter_var,ice(i)-ice_incr)            
+                    ice(i) = Amin1(liq_water(i)+inter_var,ice(i)-ice_incr)            
                 else 
                     ice(i) = Amax1(ice(i)-ice_incr,0.0)              
                 endif
                 !! readjust energy and temp 
-                heat_adjust=heat_excess-latent_heat_fusion*(inter_var-ice(i))*ice_density/3600.
-                Tsoill(i)=thd_t+heat_adjust/(shcap(i)*thksl(i)/360000.-drsdh)      
+                heat_adjust = heat_excess-latent_heat_fusion*(inter_var-ice(i))*ice_density/3600.
+                Tsoill(i)   = thd_t+heat_adjust/(shcap(i)*thksl(i)/360000.-drsdh)      
             else
                 ! if ( i .gt. 9) then 
                 !     temph2=0
                 !     thkns2=500  ! boundary conditions, rethink
                 ! endif
                 if ( i .gt. 9) then 
-                    temph2=0.00003
-                    thkns2=500  ! boundary conditions, rethink
+                    temph2 = 0.00003
+                    thkns2 = 500  ! boundary conditions, rethink
                 endif            
-                Tsoill(i)=Tsoill(i)+(temph1-temph2)/(thkns1+thkns2)    
-                heat_excess=shcap(i)*thksl(i)*(Tsoill(i)-thd_t)/360000.        
-                ice_incr=heat_excess*3600./latent_heat_fusion/ice_density         
+                Tsoill(i)   = Tsoill(i)+(temph1-temph2)/(thkns1+thkns2)    
+                heat_excess = shcap(i)*thksl(i)*(Tsoill(i)-thd_t)/360000.        
+                ice_incr    = heat_excess*3600./latent_heat_fusion/ice_density         
                 !! $$$$$$$$$$$
                 !! $$$$$$$$$$$      !tuneice
                 !                if (ice_incr .lt. 0.) then   
@@ -758,34 +613,25 @@ module mod_soil
                 
                 inter_var = ice(i) 
                 if (ice_incr .lt. 0.) then     ! freeze             
-                    ice(i)=Amin1(liq_water(i)+inter_var,ice(i)-ice_incr)             
+                    ice(i) = Amin1(liq_water(i)+inter_var,ice(i)-ice_incr)             
                 else 
                     ice(i) = Amax1(ice(i)-ice_incr,0.0)              
                 endif         
                 !! readjust energy and temp 
-                heat_adjust=heat_excess-latent_heat_fusion*(inter_var-ice(i))*ice_density/3600.
-                Tsoill(i)=thd_t+heat_adjust/(shcap(i)/360000.*thksl(i))
+                heat_adjust = heat_excess-latent_heat_fusion*(inter_var-ice(i))*ice_density/3600.
+                Tsoill(i)   = thd_t+heat_adjust/(shcap(i)/360000.*thksl(i))
             endif
            
             if (ABS(tsoill_pre -tsoill(i)) .gt. 5. ) Tsoill(i)=tsoill_pre
-                TEMPH1=TEMPH2
-                THKNS1=THKNS2
-                DIFSV1=DIFSV2        
+            TEMPH1 = TEMPH2
+            THKNS1 = THKNS2
+            DIFSV1 = DIFSV2        
         enddo
-        testout(1)=tsoill_0
-        !testout(1)=tsnow
-        testout(2:11)=tsoill(1:10)
-        !testout(1:10)=tsoill(2)
-        !testout(1)=dcount_soil
-        !testout(1:10)=liq_water(1:10)
-        !testout(1:10)=ice
-        !testout(1)=Hsoil
-    
-        ! write(82,182) testout(1),testout(2),testout(3),testout(4),testout(5)
-    !182     format(5(f15.9,","))  
+        testout(1)    = tsoill_0       ! testout(1)=tsnow
+        testout(2:11) = tsoill(1:10) 
         deallocate(depth_z)
         return 
-    end 
+    end subroutine Tsoil_simu
     
     subroutine methane(Rh_pools,Tsoil,zwt,wsc,      &      !update single value in a hourly loop when MEMCMC=0
         &             phi,LAIMIN,LAIMAX,           &
@@ -1319,6 +1165,12 @@ module mod_soil
         ! 
         ! ***********     write out hourly value for methane module 
         return
-    end    
+    end subroutine methane
+
+    real function esat(T)   ! returns saturation vapour pressure in Pa
+        real T
+        esat = 610.78*exp(17.27*T/(T+237.3))
+        return
+    end
 
 end module mod_soil

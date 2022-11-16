@@ -13,9 +13,9 @@ module mod_vegetation
    integer doy, hour
    
    real Gaussx(5), Gaussw(5), Gaussw_cum(5)                          ! Normalised Gaussian points and weights (Goudriaan & van Laar, 1993, P98)
-   real coszen, fbeam, flait, Radabv(2), eairP
+   real coszen, fbeam, Radabv(2), eairP
    real Acan1, Acan2, Ecan1, Ecan2
-   real raero, extKb, extkd
+   real extKb, extkd
    real flai, Qabs(3,2), emair, Rnstar(2), grdn
    real reff(3,2), kpr(3,2), scatt(2)
    real windUx, Vcmxx, eJmxx

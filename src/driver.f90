@@ -74,10 +74,10 @@ module driver
             if(radsol.gt.10.0) then
                 G = -25.0
             else
-                G = 20.5											
+                G = 20.5
             endif
             Esoil=0.05*radsol
-            if(radsol.LE.10.0) Esoil=0.5*G						
+            if(radsol.LE.10.0) Esoil=0.5*G
 160 continue        
             ! for daily mean conditions 
             ta     = ta + tair/24.0             ! sum of a day, for calculating daily mean temperature

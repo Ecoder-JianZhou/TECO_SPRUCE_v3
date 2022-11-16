@@ -54,6 +54,7 @@ module mod_data
     real radsol, wind, tair, Dair, TairK, co2ca, par, rain, RH, Tsoil
     ! vegetation states and flux
     real GPP, NPP, NSCmin, fnsc, nsc, NSCmax , Vcmx0
+    real flait, raero                                   ! Jian: from vegetable to Tsoil_simu
     real RmLeaf,RmStem,RmRoot                           ! maintanence respiration
     real RgLeaf,RgStem,RgRoot                           ! growth respiration 
     real Rgrowth,Rnitrogen,Rmain,Rauto !respirations
