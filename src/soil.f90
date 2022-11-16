@@ -633,12 +633,7 @@ module mod_soil
         return 
     end subroutine Tsoil_simu
     
-    subroutine methane(Rh_pools,Tsoil,zwt,wsc,      &      !update single value in a hourly loop when MEMCMC=0
-        &             phi,LAIMIN,LAIMAX,           &
-        &             ProCH4,Pro_sum,OxiCH4,Oxi_sum,Fdifu,Ebu_sum,Pla_sum,simuCH4,CH4,CH4_V,   &
-        ! &             ProCH4,Pro_sum,OxiCH4,Oxi_sum,Fdifu,Ebu_sum,Pla_sum,simuCH4,CH4,  &
-        &             r_me,Q10pro,kCH4,Omax,CH4_thre,Tveg,Tpro_me,Toxi, &
-        &             testout, do_soilphy)  !update single value of Rh_pools,Tsoil,zwt,wsc 
+    subroutine methane()  !update single value of Rh_pools,Tsoil,zwt,wsc 
         !                                                           in a hourly loop when MEMCMC=1
         !******************************************************************************************************************************
         !****!introduce variables and constants used in this subroutine

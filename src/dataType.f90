@@ -54,7 +54,9 @@ module mod_data
     integer iyear, iday, ihour
     real radsol, wind, tair, Dair, TairK, co2ca, par, rain, RH, Tsoil
     ! vegetation states and flux
-    real GPP, NPP, NSCmin, fnsc, nsc, NSCmax , Vcmx0
+    real GPP, NPP, NSCmin, fnsc, nsc, NSCmax , Vcmx0, NEE, NEP
+    real store,add, L_fall                              ! none structural carbon pool
+    real alpha_L,alpha_W,alpha_R                        ! allocation ratio to Leaf, stem, and Root
     real flait, raero                                   ! Jian: from vegetable to Tsoil_simu
     real RmLeaf,RmStem,RmRoot                           ! maintanence respiration
     real RgLeaf,RgStem,RgRoot                           ! growth respiration 
@@ -66,17 +68,21 @@ module mod_data
     real snow_depth, snow_depth_e, snow_dsim
     real,dimension(10):: thksl,wupl,evapl,wcl,FRLEN   ! wsc is the output from soil water module
     real runoff, wsc(10)
+    real Rh_pools(5)
     ! methane
     real ProCH4(nlayers), Pro_sum
     real OxiCH4(nlayers), Oxi_sum       !CH4 oxidation
     real Fdifu(nlayers)
     real Ebu_sum,Pla_sum,simuCH4
     real CH4(nlayers),CH4_V(nlayers),CH4V_d(nlayers) 
-
-    real QC(8) !  leaf,wood,root,fine lit.,coarse lit.,Micr,Slow,Pass
+    ! transfer C
+    real QC(8),OutC(8),testout(11)  !  leaf,wood,root,fine lit.,coarse lit.,Micr,Slow,Pass
     real QN(8),CN0(8),CN(8),OutN(8),QNplant,QNminer
     real N_uptake,N_leach,N_vol,N_fixation,N_deposit,N_fert
+    real N_leaf,N_wood,N_root
+    real N_LF,N_WF,N_RF
 
+    real Hcanop
     
     
     
@@ -142,6 +148,8 @@ module mod_data
     real GL_d, GW_d, GR_d, LFALL_d, NUP_d, NVOL_d, NLEACH_d
     real NMIN_d, N_LG_d, N_WG_d, N_RG_d, N_LF_d
     real N_WF_d, N_RF_d, WFALL_d, RFALL_d
+
+    real Ra_d, Rsoil_d, ET_d
 
     integer i
     contains

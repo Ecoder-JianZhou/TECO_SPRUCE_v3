@@ -16,15 +16,15 @@ module mod_transfer
     !     &               tsoill,testout,do_soilphy)      
         implicit none
         real NPP_L,NPP_W,NPP_R
-        real L_fall     !,L_add                       ! ,LAI,SLA,rdepth
+        ! real L_fall     !,L_add                       ! ,LAI,SLA,rdepth
         ! real Tair,Tsoil,omega,runoff
         ! allocation ratios
-        real alpha_L,alpha_W,alpha_R
+        ! real alpha_L,alpha_W,alpha_R
         ! pools
-        real Q_plant,OutC(8)                    ! ,QC(8),TauC(8)
+        real Q_plant                   ! ,QC(8),TauC(8)
         real etaL,etaW,etaR                     ! the percentage of fine litter of the litters from plant parts
         real f_F2M,f_C2M,f_C2S,f_M2S,f_M2P,f_S2P,f_S2M,f_P2M
-        real Rh_pools(5),Q10h(5)                ! ,Q10 ! Q10 of the litter and soil C pools
+        real Q10h(5)                ! ,Q10 ! Q10 of the litter and soil C pools
         ! the fraction of C-flux which enters the atmosphere from the kth pool
         ! real f_CO2_fine,f_CO2_coarse,f_CO2_Micr,f_CO2_Slow,f_CO2_Pass
         ! for nitrogen sub-model
@@ -35,8 +35,8 @@ module mod_transfer
         real N_transfer,N_loss                         ! ,N_miner,N_uptake,N_deposit,N_leach,N_vol
         real Qroot0,Cfix0                           ! alphaN,
         real Scalar_N_flow,Scalar_N_T
-        real N_leaf,N_wood,N_root
-        real N_LF,N_WF,N_RF
+        ! real N_leaf,N_wood,N_root
+        ! real N_LF,N_WF,N_RF
         real ksye                                   ! NSC,fnsc,
         ! real SNvcmax,SNgrowth,SNRauto,SNrs
         real kappaVcmax
@@ -54,7 +54,7 @@ module mod_transfer
         ! integer day,week,month,year
         ! *** ..int
         ! added for soil thermal
-        real frac_soc(10),testout(11),tsoil_layer(11)       ! tsoill(10),
+        real frac_soc(10),tsoil_layer(11)       ! tsoill(10),
         ! logical do_soilphy
         
         tsoil_layer = testout
