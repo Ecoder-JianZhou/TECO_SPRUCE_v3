@@ -2,6 +2,7 @@ module driver
     ! simulation based on the forcing data
     use mod_data
     use mod_vegetation
+    use mod_soil
     implicit none
     
     contains
@@ -93,61 +94,25 @@ module driver
             ! eJmx0 = 2.7*Vcmx0  ! original
             eJmx0 = 1.67*Vcmx0 ! Weng 02/21/2011 Medlyn et al. 2002      
             call canopy()
-        ENDDO
+            call soilwater()                      !outputs
 
-!                 call soilwater(wsmax,wsmin,rdepth,FRLEN,THKSL,    &   !constants specific to soil/plant
-!                     &         rain,transp,evap,wcl,runoff,infilt,     &   !inputs
-!                     &         fwsoil,topfws,omega,wsc,zwt,phi,        &
-!                     &         liq_water,infilt_rate,melt,ta,day_mod, &
-!                     &         do_soilphy,snow_depth,ice,testout)                      !outputs
-
-!                 ET=evap+transp
-!                 rain_yr=rain_yr+rain
-!                 transp_yr=transp_yr+transp
-!                 evap_yr=evap_yr+evap
-!                 runoff_yr=runoff_yr+runoff
-!                 call respiration(LAIMIN,GPP,Tair,Tsoil,DepH2O,&
-!                     &        Q10,Rl0,Rs0,Rr0,SNRauto,&
-!                     &        LAI,SLA,bmstem,bmroot,bmleaf,&
-!                     &        StemSap,RootSap,NSC,fnsc,&
-!                     &        RmLeaf,RmStem,RmRoot,Rmain)
-!                 ! THE Third Part: update LAI
-!                 call plantgrowth(Tair,omega,GLmax,GRmax,GSmax,&
-!                     &     LAI,LAIMAX,LAIMIN,SLA,TauC(1),         &    !Tau_L,
-!                     &     bmleaf,bmroot,bmstem,bmplant,&
-!                     &     Rootmax,Stemmax,SapS,SapR,&
-!                     &     StemSap,RootSap,Storage,GDD5,&
-!                     &     stor_use,onset,accumulation,gddonset,&
-!                     &     Sps,NSC,fnsc,NSCmin,NSCmax,&
-!                     &     NSN,CN,CN0,SNgrowth,N_deficit,&
-!                     &     store,add,L_fall,ht,&
-!                     &     NPP,alpha_L,alpha_W,alpha_R,&
-!                     &     RgLeaf,RgStem,RgRoot,Rgrowth)
-
-!                 ! THE Fourth PART: simulating C influx allocation in pools
-!                 call TCS_CN(Tair,Tsoil,omega,runoff,&
-!                     &     NPP,alpha_L,alpha_W,alpha_R,L_fall,&
-!                     &     tauC,QC,OutC,Rh_pools,Rnitrogen,NSC,&
-!                     &     CNmin,CNmax,NSNmax,NSNmin,alphaN,   &         ! nitrogen
-!                     &     NSN,N_uptake,N_miner,QN,QNminer,&
-!                     &     CN,CN0,fnsc,rdepth,N_deficit,&
-!                     &     N_leaf,N_wood,N_root,N_LF,N_WF,N_RF,&
-!                     &     N_deposit,N_fixation,N_leach,N_vol,&
-!                     &     SNvcmax,SNgrowth,SNRauto,SNrs,Q10,&
-!                     &     tsoill,testout,do_soilphy)
-!                 ! *** ..int 
-!                 ! added tsoil,testout,do_soilphy to TCS_CN
-!                 ! added methane module
-
-!                 ! write(82,182) zwt, Rh_pools,Tsoil, Ebu_sum_sat, Ebu_sum_unsat
-!                 ! 182     format(5(f15.9,","))       
+            ET        = evap+transp
+            rain_yr   = rain_yr+rain
+            transp_yr = transp_yr+transp
+            evap_yr   = evap_yr+evap
+            runoff_yr = runoff_yr+runoff
+            call respiration()
+            ! THE Third Part: update LAI
+            call plantgrowth()
+            ! THE Fourth PART: simulating C influx allocation in pools
+            call TCS_CN()   
      
-!                 call methane(Rh_pools,Tsoil,zwt,wsc,     &      !update single value in a hourly loop when MEMCMC=0
-!                     &     phi,LAIMIN,LAIMAX,           &
-!                     &     ProCH4,Pro_sum,OxiCH4,Oxi_sum,Fdifu,Ebu_sum,Pla_sum,simuCH4,CH4,CH4_V,   &
-!                     ! &     ProCH4,Pro_sum,OxiCH4,Oxi_sum,Fdifu,Ebu_sum,Pla_sum,simuCH4,CH4,   &
-!                     &     r_me,Q10pro,kCH4,Omax,CH4_thre,Tveg,Tpro_me,Toxi,  &
-!                     &     testout,do_soilphy)       !update single value of Rh_pools,Tsoil,zwt,wsc 
+            call methane(Rh_pools,Tsoil,zwt,wsc,     &      !update single value in a hourly loop when MEMCMC=0
+                &     phi,LAIMIN,LAIMAX,           &
+                &     ProCH4,Pro_sum,OxiCH4,Oxi_sum,Fdifu,Ebu_sum,Pla_sum,simuCH4,CH4,CH4_V,   &
+                ! &     ProCH4,Pro_sum,OxiCH4,Oxi_sum,Fdifu,Ebu_sum,Pla_sum,simuCH4,CH4,   &
+                ! &     r_me,Q10pro,kCH4,Omax,CH4_thre,Tveg,Tpro_me,Toxi,  &
+                &     testout,do_soilphy)       !update single value of Rh_pools,Tsoil,zwt,wsc 
 !                 ! update NSC
 !                 Rauto  =Rmain+Rgrowth+Rnitrogen
 !                 NSC    =NSC+GPP-Rauto-(NPP-add)-store
@@ -491,7 +456,7 @@ module driver
 !     endif 
 ! 999      continue
 !     return
-!         enddo
+        enddo
     end subroutine teco_simu
 
 end module driver

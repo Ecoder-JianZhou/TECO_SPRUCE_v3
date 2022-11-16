@@ -28,6 +28,7 @@ module mod_data
     end type ForcingType
     type(ForcingType) :: forcing 
 
+    integer, parameter :: nlayers=10
     ! contant parameters------------------------------------
     real,dimension(3):: tauL,rhoL,rhoS
     real pi,emleaf,emsoil,Rconst,sigma,cpair,Patm,Trefk
@@ -65,6 +66,12 @@ module mod_data
     real snow_depth, snow_depth_e, snow_dsim
     real,dimension(10):: thksl,wupl,evapl,wcl,FRLEN   ! wsc is the output from soil water module
     real runoff, wsc(10)
+    ! methane
+    real ProCH4(nlayers), Pro_sum
+    real OxiCH4(nlayers), Oxi_sum       !CH4 oxidation
+    real Fdifu(nlayers)
+    real Ebu_sum,Pla_sum,simuCH4
+    real CH4(nlayers),CH4_V(nlayers),CH4V_d(nlayers) 
 
     real QC(8) !  leaf,wood,root,fine lit.,coarse lit.,Micr,Slow,Pass
     real QN(8),CN0(8),CN(8),OutN(8),QNplant,QNminer
@@ -72,8 +79,8 @@ module mod_data
 
     
     
-    integer, parameter :: nlayers=10
-    real CH4(nlayers),CH4_V(nlayers),CH4V_d(nlayers) 
+    
+    
     real sftmp,Tsnow,Twater,Tice,ice_tw,water_tw 
     ! variables for canopy model
     real evap,transp,ET,G
