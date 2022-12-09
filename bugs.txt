@@ -1,0 +1,20 @@
+20221209:
+    gpp is nan when 2nd step. Acan1 and Acan2 is NaN. Aleaf is [NaN, NaN].
+    Vcmxx is NaN
+    scalex is NaN
+    extkn  is nan
+    FLAIT is 0 --> 1/FLAIT --> extkd is NaN
+    LAI is 0 --> FLAIT is 0
+    SLA is 0 --> LAI is 0
+    SLAx is read from parameter file, but it is confused that SLA and SLAx. change the read varible from SLA to SLAx.
+    now, bmleaf is NAN, OutC(2:) is -infinity or NAN.
+    change :
+        tauC           = (/tau_L,tau_W,tau_R,tau_F,tau_C,tau_Micr,tau_Slow,tau_Pass/)*8760.
+    to : 
+        TauC           = (/Tau_Leaf,Tau_Wood,Tau_Root,Tau_F,Tau_C,Tau_Micro,Tau_slowSOM,Tau_Passive/)*8760.
+    
+    However, gpp is always zero.
+    Acan1 is zero
+    fslt, Aleaf(1) is zero
+    extKb is 100
+    coszen is error. doy is not be defined?

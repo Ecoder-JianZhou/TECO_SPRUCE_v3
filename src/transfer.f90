@@ -252,6 +252,7 @@ module mod_transfer
         ! update QNminer
         QNminer=QNminer-N_loss
         ! update plant carbon pools, ! daily change of each pool size
+        
         QC(1)=QC(1) - OutC(1) + NPP_L    
         QC(2)=QC(2) - OutC(2) + NPP_W
         QC(3)=QC(3) - OutC(3) + NPP_R
@@ -261,7 +262,8 @@ module mod_transfer
             &       + f_S2M*OutC(7)+f_P2M * OutC(8)
         QC(7)=QC(7) - OutC(7)+f_C2S*OutC(5)+f_M2S*OutC(6)
         QC(8)=QC(8) - OutC(8)+f_M2P*OutC(6)+f_S2P*OutC(7)
-
+        ! write(*,*)"test update pools:", tauC(2), S_omega
+        if (QC(2) <-huge(1)) STOP
         Q_plant =QC(1) + QC(2) + QC(3)
         ! update nitrogen pools
         QN(1)=QN(1) - OutN(1) + N_leaf

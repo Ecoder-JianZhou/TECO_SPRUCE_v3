@@ -106,6 +106,7 @@ module driver
             ! eJmx0 = 2.7*Vcmx0  ! original
             eJmx0 = 1.67*Vcmx0 ! Weng 02/21/2011 Medlyn et al. 2002     
             call canopy()
+            ! write(*,*)"test gpp by Jian:", gpp
             call soilwater()                      !outputs
 
             ET        = evap+transp
@@ -120,6 +121,10 @@ module driver
             call TCS_CN()   
      
             call methane()       !update single value of Rh_pools,Tsoil,zwt,wsc 
+            if (iday .eq. 44) then  
+                write(*,*) "test gpp: ", gpp, Acanop, iforcing
+                stop    
+            endif
             ! update NSC
             Rauto      = Rmain+Rgrowth+Rnitrogen
             NSC        = NSC+GPP-Rauto-(NPP-add)-store
@@ -190,6 +195,7 @@ module driver
             bmroot=QC(3)/0.48
             bmplant=bmleaf+bmroot+bmstem
             LAI=bmleaf*SLA
+            ! write(*,*) "test LAI: ", bmleaf, SLA, QC(1)
             NMIN_d = NMIN_d+N_miner
             ! output hourly
             Recoh=Rhetero+Rauto
@@ -281,6 +287,10 @@ module driver
             write(*,*)iyear,iday,ihour,gpp,npp,radsol, wind, tair, Dair, TairK, co2ca, par, rain, RH, Tsoil
             return
             endif
+            if(gpp>0.)then
+            write(*,*)iyear,iday,ihour,gpp,npp,radsol, wind, tair, Dair, TairK, co2ca, par, rain, RH, Tsoil
+            endif
+            ! stop
             ! if(isnan(gpp))then
             !     write(*,*)'gpp is nan'
             !     return

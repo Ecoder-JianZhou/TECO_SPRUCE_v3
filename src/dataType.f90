@@ -201,7 +201,8 @@ module mod_data
         stor_use       = Storage/720.                                       ! 720 hours, 30 days
         N_deposit      = 2.34/8760. ! Nitrogen input (gN/h/m2, )
         ! the unit of residence time is transformed from yearly to hourly
-        tauC           = (/tau_L,tau_W,tau_R,tau_F,tau_C,tau_Micr,tau_Slow,tau_Pass/)*8760. 
+        ! tauC           = (/tau_L,tau_W,tau_R,tau_F,tau_C,tau_Micr,tau_Slow,tau_Pass/)*8760. 
+        TauC           = (/Tau_Leaf,Tau_Wood,Tau_Root,Tau_F,Tau_C,Tau_Micro,Tau_slowSOM,Tau_Passive/)*8760.
         SLA            = SLAx/10000.          ! Convert unit from cm2/g to m2/g
         GLmax          = GLmax/8760.          ! growth rates of plant. Jian: per year to per hour ?
         GRmax          = GRmax/8760.
@@ -372,7 +373,7 @@ module mod_data
         read(10,11)commts
         read(10,*)LAIMAX,LAIMIN,rdepth,Rootmax,Stemmax    
         read(10,11)commts
-        read(10,*)SapR,SapS,SLA,GLmax,GRmax,Gsmax,stom_n
+        read(10,*)SapR,SapS,SLAx,GLmax,GRmax,Gsmax,stom_n
         read(10,11)commts
         read(10,*)a1,Ds0,Vcmax0,extkU,xfang,alpha
         read(10,11)commts

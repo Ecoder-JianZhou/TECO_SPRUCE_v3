@@ -1770,6 +1770,12 @@ subroutine TECO_simu(MCMC,do_co2_da,Simu_dailyflux,Simu_soilwater,obs_soilwater,
                     ! &     ProCH4,Pro_sum,OxiCH4,Oxi_sum,Fdifu,Ebu_sum,Pla_sum,simuCH4,CH4,   &
                     &     r_me,Q10pro,kCH4,Omax,CH4_thre,Tveg,Tpro_me,Toxi,  &
                     &     testout,do_soilphy)       !update single value of Rh_pools,Tsoil,zwt,wsc 
+
+
+                    if (gpp>0.) then  
+                        write(*,*) "test gpp: ", gpp, dtimes, m, Acanop, doy
+                        stop    
+                        endif
                 ! update NSC
                 Rauto  =Rmain+Rgrowth+Rnitrogen
                 NSC    =NSC+GPP-Rauto-(NPP-add)-store
@@ -1930,10 +1936,8 @@ subroutine TECO_simu(MCMC,do_co2_da,Simu_dailyflux,Simu_soilwater,obs_soilwater,
                     k1=k1+1
                 endif
                 ! write(*,*)yr,days,i,gpp,npp
-                if(isnan(gpp))then
-                    write(*,*)'gpp is nan'
-                    return
-                endif
+
+                
 
             enddo              ! end of dtimes
             if((GDD5.gt.gddonset) .and. phenoset.eq.0) then
@@ -2268,6 +2272,7 @@ subroutine canopy(gpp,evap,transp,Acanop,Hcanop,Rsoilabs, &  ! outputs
     !     write (84,184) Esoil
     !184   format(f15.9,",")
     !   ***  
+    write(*,*)"test by Jian:", Acanop, Acan1, Acan2
     Acanop=Acan1+Acan2
     Ecanop=Ecan1+Ecan2
     gpp=Acanop*3600.0*12.0                           ! every hour, g C m-2 h-1
@@ -2275,7 +2280,6 @@ subroutine canopy(gpp,evap,transp,Acanop,Hcanop,Rsoilabs, &  ! outputs
     evap=AMAX1(Esoil*3600.0/(1.0e6*(2.501-0.00236*Tair)),0.)
     ! evap=evap*0.8
     ! H2OLv0=2.501e6               !latent heat H2O (J/kg)
-    return
 end
       
 !****************************************************************************
@@ -4342,7 +4346,8 @@ subroutine xlayers(Sps,Tair,Dair,radabv,fbeam,eairP,&                           
                 &    gsw0,alpha,stom_n,                                 &
                 &    Vcmxx,eJmxx,conKc0,conKo0,Ekc,Eko,o2ci,            &
                 &    Eavm,Edvm,Eajm,Edjm,Entrpy,gam0,gam1,gam2,         &
-                &    Aleaf,Eleaf,Hleaf,Tleaf,gbleaf,gsleaf,co2ci,gddonset)       
+                &    Aleaf,Eleaf,Hleaf,Tleaf,gbleaf,gsleaf,co2ci,gddonset) 
+                
         else
             call agsean_ngt(Sps,Qabs,Rnstar,grdn,windUx,Tair,Dair,      &
                 &    co2ca,wleaf,raero,theta,a1,Ds0,fwsoil,idoy,hours,  &
@@ -4372,6 +4377,7 @@ subroutine xlayers(Sps,Tair,Dair,radabv,fbeam,eairP,&                           
         Acan1=Acan1+fslt*Aleaf(1)*Gaussw(ng)*FLAIT*stom_n    !amphi/hypostomatous
         Acan2=Acan2+fshd*Aleaf(2)*Gaussw(ng)*FLAIT*stom_n
         AcanL(ng)=Acan1+Acan2
+        write(*,*)"test Acan1 Jian: ", fslt, extKb, flai
 
         layer1(ng)=Aleaf(1)
         layer2(ng)=Aleaf(2)

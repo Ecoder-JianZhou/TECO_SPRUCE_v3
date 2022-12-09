@@ -36,7 +36,7 @@ contains
       ! integer in_doy, in_hour
       ! real in_radsol, in_wind, in_tair, in_VPD, in_co2ca
       real Ecanop
-
+      doy = iday
       ! doy    = in_doy
       ! hour   = in_hour
       ! radsol = in_radsol
@@ -56,6 +56,7 @@ contains
       end if
       ! assign plant biomass and leaf area index at time t
       ! assume leaf biomass = root biomass
+      ! write(*,*)"test canopy: ", LAI
       FLAIT     = LAI
       eairP     = esat(Tair) - Dair              !air water vapour pressure
       radabv(1) = 0.5*radsol                    !(1) - solar radn
@@ -65,11 +66,13 @@ contains
       ! run Tsoil simulation
       ! if (do_soilphy) call Tsoil_simu()                  ! *** ..int   added 'testout,Rsoilab1,Rsoilab2,QLleaf,QLair,raero,do_soilphy,G,Esoil,Hsoil'
       ! summary the results of canopy
+      write(*,*)"test by Jian:", Acanop, Acan1, Acan2
       Acanop = Acan1 + Acan2                                
       Ecanop = Ecan1 + Ecan2
       gpp    = Acanop*3600.0*12.0                           ! every hour, g C m-2 h-1
       transp = AMAX1(Ecanop*3600.0/(1.0e6*(2.501 - 0.00236*Tair)), 0.) ! mm H2O /hour
       evap   = AMAX1(Esoil *3600.0/(1.0e6*(2.501 - 0.00236*Tair)), 0.)
+      write(*,*)"test gpp1 by Jian:", gpp
       return
    end subroutine canopy
 
@@ -323,7 +326,7 @@ contains
                 &       0.178*exp(-xK75*FLAIT)
       extkd   = (-1./FLAIT)*alog(transd)
       extkn   = extkd                        !N distribution coeff
-
+      ! write(*,*)"test extkn: ", extkd, FLAIT, transd
       ! canopy reflection coefficients (Array indices: first;  1=VIS,  2=NIR
       !   second; 1=beam, 2=diffuse
       do nw = 1, 2  ! nw:1=VIS, 2=NIR
@@ -352,12 +355,14 @@ contains
          call Radiso()
          windUx = wind*exp(-extkU*flai)                ! windspeed at depth xi
          scalex = exp(-extkn*flai)                     ! scale Vcmx0 & Jmax0
+         ! write(*,*)"before calculate vcmxx: ", Vcmax0, scalex, extkn, flai
          Vcmxx = Vcmax0*scalex                         ! Vcmx0 ---> Vcmax0
          eJmxx = eJmx0*scalex
          if (radabv(1) .ge. 10.0) then                          !check solar Radiation > 10 W/m2
             ! leaf stomata-photosynthesis-transpiration model - daytime
             call agsean_day()
          else
+            ! write(*,*)"before agsean_ngt, vcmxx: ", Vcmxx
             call agsean_ngt()
          end if
          fslt      = exp(-extKb*flai)                        !fraction of sunlit leaves
@@ -380,6 +385,7 @@ contains
          Acan1      = Acan1 + fslt*Aleaf(1)*Gaussw(ng)*FLAIT*stom_n    !amphi/hypostomatous
          Acan2      = Acan2 + fshd*Aleaf(2)*Gaussw(ng)*FLAIT*stom_n
          AcanL(ng)  = Acan1 + Acan2
+         ! write(*,*)"test Acan1 Jian: ", fslt, extKb, flai, doy
 
          layer1(ng) = Aleaf(1)
          layer2(ng) = Aleaf(2)
@@ -586,6 +592,7 @@ contains
                &         Eavm,Edvm,Eajm,Edjm,Entrpy,gam0,gam1,gam2,       &
                &         Aleafx,Gscx,gddonset)  !outputs
             ! choose smaller of Ac, Aq
+               
             Aleaf(ileaf) = Aleafx      !0.7 Weng 3/22/2006          !mol CO2/m2/s
             ! calculate new values for gsc, cs (Lohammer model)
             co2cs = co2ca - Aleaf(ileaf)/gbc
@@ -677,6 +684,11 @@ contains
             Aleafx = -0.0089*Vcmxx*exp(0.069*(Tlk - 293.2))
             gsc = gsc0
             ! choose smaller of Ac, Aq
+            ! write(*,*) "test Aleaf", Aleaf, Aleafx, Vcmxx, Tlk
+            if (ISNAN(Aleafx)) then
+               
+               stop
+            endif
             Aleaf(ileaf) = Aleafx                     !mol CO2/m2/s
             ! calculate new values for gsc, cs (Lohammer model)
             co2cs = co2ca - Aleaf(ileaf)/gbc
@@ -734,7 +746,7 @@ contains
       real Rd, Tdiff, gammas, gamma
       real X, Gma, Bta
       real Acx, Aqx ! from ciandA
-
+      ! write(*,*)"This is photosyn ..."
       CO2Csx = AMAX1(CO2Cs, 0.6*CO2Ca)
       ! check if it is dark - if so calculate respiration and g0 to assign conductance
       if (Qaparx .le. 0.) then                            !night, umol quanta/m2/s
