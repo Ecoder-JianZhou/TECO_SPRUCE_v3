@@ -1,7 +1,7 @@
 module mod_data
     implicit none
     ! run settings 
-    logical, parameter :: do_spinup  = .True.                     ! run spinup or not
+    logical, parameter :: do_spinup  = .TRUE.                     ! run spinup or not
     logical, parameter :: do_mcmc    = .False.                     ! run mcmc or not
     logical, parameter :: do_snow    = .True.                      ! do soil snow process
     logical, parameter :: do_soilphy = .True.                      ! do soil physics
@@ -20,7 +20,7 @@ module mod_data
     character(len=20) :: experiment = "control"                    ! for output based on SPRUCE-MIP form, such as "historical","control","w0-ambCO2","w2p25-ambCO2"..."w9-500CO2"
 
     ! parameters for spin-up
-    integer, parameter :: nloops     = 10000                           ! the times to cycle all of forcing data for spin-up
+    integer, parameter :: nloops     = 1000                           ! the times to cycle all of forcing data for spin-up
     integer :: itest  ! add for testing
     integer :: iitest
 

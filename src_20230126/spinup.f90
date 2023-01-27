@@ -8,7 +8,7 @@ module mod_spinup
             write(*,*) "iloop: ", iloop
             itest = iloop
             call teco_simu()
-            ! write(*,*) sum(all_gpp_d), all_cOther_d(size(all_cOther_d))
+            write(*,*) sum(all_gpp_d), all_cOther_d(size(all_cOther_d))
             if (sum(all_gpp_d) .eq. 0.) stop
         enddo
     end subroutine run_spinup

@@ -957,15 +957,15 @@ module mod_soil
         ! C. methane diffusion
         ! ****************************************************
         ! Parameters assignment 
-        D_CH4_a=0.2                             !unit cm2 s-1   D_CH4_a is the molecular diffusion coefficient of methane in air
+        D_CH4_a=0.2            !unit cm2 s-1   D_CH4_a is the molecular diffusion coefficient of methane in air
         D_CH4_a=(D_CH4_a/10000.0)*3600.0        !unit m2 h-1
-        D_CH4_w=0.00002                         !unit cm2 s-1   D_CH4_a is the molecular diffusion coefficient of methane in water
+        D_CH4_w=0.00002        !unit cm2 s-1   D_CH4_a is the molecular diffusion coefficient of methane in water
         D_CH4_w=(D_CH4_w/10000.0)*3600.0        !unit m2 h-1          
-        ftort=0.66                              !tortuosity coefficient with a value of 0.66    Walter and Heimann 2000
+        ftort=0.66        !tortuosity coefficient with a value of 0.66    Walter and Heimann 2000
         ! parameters for fcoarse algorithm      
-        SAND=0.4          !   %   SPRUCE site value    0.4
-        SILT=0.4          !   %   SPRUCE site value   0.4
-        CLAY=0.2          !   %   SPRUCE site value   0.2
+        SAND=0.4             !   %   SPRUCE site value    0.4
+        SILT=0.4             !   %   SPRUCE site value   0.4
+        CLAY=0.2             !   %   SPRUCE site value   0.2
         PVSAND=0.45       !relative volume of coarse pores in sandy soils       set to 0.45     value from Walter 2001 zhuang
         PVSILT=0.20       !relative volume of coarse pores in silty soils       set to 0.20     value from Walter 2001 zhuang
         PVCLAY=0.14       !relative volume of coarse pores in clayish soils     set to 0.14     value from Walter 2001 zhuang  

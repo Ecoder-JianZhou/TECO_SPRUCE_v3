@@ -17,4 +17,49 @@
     Acan1 is zero
     fslt, Aleaf(1) is zero
     extKb is 100
-    coszen is error. doy is not be defined?
+    coszen is error. doy is not be defined? something wrong in cycle process?
+    hour is not defined, now coszen is correct
+    but, Acan1 is still zero. Aleaf(1) is zero
+    photosyn input and ouput have probelms. Now, the Aqc Aqx from ciandA is error.
+    CiandA, VcmxT is error because of input in VJtemp: Tlf is error.
+    before photosyn, Gbc, fwsoil and Vcmxx is different
+    Vcmxx is error because of the input part, it misfixes the Vcmx0 and Vcmax0
+    Tsoil_simu add, shcap is NaN, wcl
+    evap is NaN, Rsoilabs, G is NaN
+    liq_water, ice is NAN.  sftmp is Nan first, then delta from resdh= Rsoilabs-Hsoil-Esoil-G
+    Rsoilabs and Esoil is NAN, Esoil is from Rsoilabs, Rsoilab3 is NAN, QLleaf is NAN
+    Tleaf1 is culculative each cycle
+    ===========================================================================================
+    1 Ra is different, Rh is different, GPP is different from 53.
+    Rh is cumulative....
+    --------------------
+    check Ra first. 
+    Ramain is first different, RmStem, RmRoot are different. Rmstem is RS0 and StemSap, Rs0 must not change but change because plantgrowth confused use Rs0
+    StemSap must change but not change, becuase daily update not put in daily but each cycle.
+    Rmroot is different or not ? yes it solved
+    --------------------
+    check Rh
+    for Rh_pools(1) OUTC(1) --> S_T -->tsoil_layer testout is re-defined in Tsoil_simu module
+    Rh is still different when gpp is higher ...NO from the 2nd simulation is differetn
+    S_omega has slightly different, omega,
+    real(kind=8) FLDCAP, WILTPT_x  ! Jian: use WILTPT_x replace the WILTPT
+    step 100: S_t(1) change, still tsoil_layer, 
+    sftmp, Tsoill(1), Tsnow, all different
+    -----
+    check sftmp
+    delta and resdh, from G, snow_depth_t is different
+    snow_d() not work.
+
+    ------------------------------
+    2023.01.25
+    bugs: spinup to zero gpp
+    Acan is 0,  Aleaf is 0, Aleafx is 0, Vcmxx is too low, Vcmx0, SNvcmax is too low, CN(1) is too low
+    ------------------------
+    something is wrong, maybe Aleafx is updated in photosyn subroutine.
+    Aleafx = (amin1(Acx, Aqx) - Rd)
+    Aqx is zero, maybe Gma =0, maybe ej = 0, eJmxT too low, eJmxx too low, eJmx0 is low, Vcmx0 is low, SNvcmax is low, CN(1) low
+    N_leaf is error too low, NSN is too low??
+    QC1 higher, QN1 not so higher.
+    NPP is error, GrowthP is zero, NPP == add, because GPmax*fnsc*St*(1.-exp(-NSN)) is error
+    ===================
+    946 times, it also error in Aleafx

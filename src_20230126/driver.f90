@@ -261,11 +261,6 @@ module driver
             call TCS_CN()  
             ! if (do_matrix) call matrix_struct() 
             call methane()       !update single value of Rh_pools,Tsoil,zwt,wsc 
-            ! write(*,*)"TEST_CH4", CH4
-            ! write(*,*)"TEST_CH4_H", cCH4_h
-            ! write(*,*)"TEST_CH4_D", cCH4_d
-            ! write(*,*)"TEST_CH4_M", cCH4_m
-           
             ! update NSC
             Rauto      = Rmain + Rgrowth + Rnitrogen
             NSC        = NSC + GPP - Rauto - (NPP-add)-store
@@ -354,7 +349,6 @@ module driver
 
             call updateHourly()
             call summaryHourly(iTotHourly)
-            !  Write(*,*)"TEST_ALL_:", wetlandCH4_h(iTotHourly-1,:)
             ! sums of a day
             diff_d   = diff_d   + difference
             gpp_d_old    = gpp_d_old    + GPP
